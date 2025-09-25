@@ -1,0 +1,82 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# Results and logs
+results/checkpoints/*.pth
+results/checkpoints/*.pt
+results/logs/
+results/plots/*.png
+results/plots/*.pdf
+*.log
+
+# Tensorboard
+runs/
+tensorboard/
+
+# Weights & Biases
+wandb/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+
+# Temporary files
+*.tmp
+temp/
+tmp/
+
+# Large model files
+*.h5
+*.pkl
+*.pickle
+*.ckpt
+
+# Video files
+*.mp4
+*.avi
+*.gif
+
+# Exclude everything in experiments except structure and notes
+experiments/*/*/*.json
+experiments/*/*/*.pth
+experiments/*/*/*.pt
+experiments/*/*/logs/
+!experiments/*/*/notes.md
+!experiments/*/*/config.yaml

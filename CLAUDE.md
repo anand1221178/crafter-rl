@@ -1,149 +1,220 @@
-# CLAUDE.md
+# Reinforcement Learning Assignment - CLAUDE Project Tracker
+**COMS4061A/COMS7071A - Group Project**
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Group Information
+- **Due Date**: October 22, 2025, 23:59
+- **Group Size**: 2 members
+- **Environment**: Crafter (Gymnasium interface)
 
-## Project Overview
-This is a Reinforcement Learning project implementing agents for the Crafter survival game environment. The project requires implementing two RL algorithms (one from course, one external) with iterative improvements to optimize performance.
+### Group Members & Responsibilities
+- **Anand Patel** (Student #: _TO_BE_FILLED_)
+  - **Role**: DrQ-v2 Implementation (External Algorithm)
+  - **Focus**: Visual RL, data augmentation, replay buffers
+- **Partner Name** (Student #: _TO_BE_FILLED_)
+  - **Role**: Course Algorithm Implementation (e.g., PPO/DQN)
+  - **Focus**: Policy optimization, stable baselines integration
 
-## Key Requirements
-- Due Date: October 22, 2025
-- Environment: CrafterPartial-v1 (64x64 RGB images, 17 actions, 22 achievements)
-- Two algorithms with minimum 2 improvements each
-- Evaluation metrics: Achievement unlock rate, survival time, cumulative reward
+## Assignment Overview
+This project involves implementing and iteratively improving two RL agents in the Crafter environment:
+1. One algorithm **from the course**
+2. One algorithm **NOT covered in the course**
 
-## Common Commands
+Each agent must go through iterative improvement cycles: Base → Eval 1 → Improvement 1 → Eval 2 → Improvement 2 → Eval 3
 
-### Setup and Installation
-```bash
-# Create conda environment
-conda env create -f environment.yml
-conda activate crafter-rl
+## Environment Details
+- **Crafter**: Procedurally generated 2D survival game
+- **Observation Space**: 64x64 RGB images
+- **Action Space**: 17 discrete actions
+- **Environment**: `gym.make("CrafterPartial-v1")`
+- **Key Mechanics**: Resource gathering, crafting, combat, survival (hunger/health)
+- **Rewards**: +1 survival reward per timestep + achievement rewards (22 total)
 
-# Install dependencies
-pip install -r requirements.txt
+## Project Requirements Checklist
 
-# Verify Crafter installation
-python -c "import gymnasium as gym; env = gym.make('CrafterPartial-v1')"
+### Core Implementation (Divided by Person)
+
+### 🎯 ANAND'S WORK: DrQ-v2 (External Algorithm)
+- [ ] **Research & Explain DrQ-v2** (for report section)
+- [ ] **Base Implementation**
+  - [ ] DrQ-v2 agent class inheriting from BaseAgent
+  - [ ] Q-network architecture for 64x64 RGB inputs
+  - [ ] Replay buffer with data augmentation
+  - [ ] Target network and soft updates
+- [ ] **Evaluation 1**: Baseline DrQ-v2 performance
+- [ ] **Improvement 1**: Enhanced data augmentation (random crops, color jitter)
+- [ ] **Evaluation 2**: Post-improvement 1 performance
+- [ ] **Improvement 2**: Prioritized replay buffer or n-step returns
+- [ ] **Evaluation 3**: Final DrQ-v2 performance
+
+### 🎯 PARTNER'S WORK: PPO (Course Algorithm)
+- [ ] **PPO Agent Implementation**
+  - [ ] PPOAgent class inheriting from BaseAgent
+  - [ ] Refactor existing train.py into proper class structure
+  - [ ] Policy and value networks for visual observations
+- [ ] **Evaluation 1**: Baseline PPO performance
+- [ ] **Improvement 1**: CNN architecture optimization or frame stacking
+- [ ] **Evaluation 2**: Post-improvement 1 performance
+- [ ] **Improvement 2**: Reward shaping or exploration bonuses
+- [ ] **Evaluation 3**: Final PPO performance
+
+### 🤝 SHARED WORK:
+- [ ] **Final Comparison**: Compare DrQ-v2 vs PPO performance
+- [ ] **Report Writing**: Combine both algorithm sections
+- [ ] **Code Integration**: Ensure both agents work with shared evaluation code
+
+### Evaluation Metrics (Standard Crafter Metrics)
+- [ ] Achievement unlock rate (per achievement)
+- [ ] Geometric mean of achievement unlock rates
+- [ ] Survival time (avg timesteps per episode)
+- [ ] Cumulative reward (total reward per episode)
+
+### Deliverables
+- [ ] **Report** with all requirements
+- [ ] **Source Code** (well-commented, with README)
+- [ ] **GitHub Repository** link in report
+- [ ] **Hyperparameters** documented in report
+
+## Technical Setup
+- **Environment**: `gym.make("CrafterPartial-v1")` with Gymnasium interface
+- **Libraries Allowed**: Stable Baselines3, etc.
+- **YAML**: Use provided package versions for compatibility
+- **Wrapper**: Minimal Gymnasium wrapper provided (handles API compatibility)
+
+## Improvement Ideas (Non-trivial changes required)
+### Potential Improvements (NOT just hyperparameter tuning)
+- [ ] Image preprocessing/feature extraction
+- [ ] Reward shaping
+- [ ] Action space modifications
+- [ ] Policy model architecture changes
+- [ ] Observation preprocessing
+- [ ] Sub-task curricula
+- [ ] Experience replay modifications
+- [ ] Multi-objective learning approaches
+
+## Project Status
+
+### Current Phase: Project Setup
+- [x] Read and understand assignment requirements
+- [x] Create project tracking system (CLAUDE.md)
+- [ ] Analyze existing codebase structure
+- [ ] Set up development environment
+- [ ] Choose algorithms to implement
+
+### Algorithm Selection & Ownership
+- **Algorithm 1 (From Course)**: PPO (Proximal Policy Optimization)
+  - **Owner**: Partner
+  - **Status**: Basic version in train.py, needs BaseAgent refactoring
+- **Algorithm 2 (External - NOT From Course)**: DrQ-v2 (Data-Regularized Q-Learning v2)
+  - **Owner**: Anand Patel
+  - **Status**: Not yet implemented, will create from scratch
+
+### Current Project Status
+**✅ COMPLETED:**
+- [x] Basic project structure set up
+- [x] Environment setup (Crafter + Gymnasium compatibility)
+- [x] PPO implementation (basic version in train.py)
+- [x] Base agent interface (src/agents/base_agent.py with TODO(human) sections)
+- [x] Evaluation infrastructure (plot_reward.py, plot_scores.py, read_metrics.py)
+- [x] Conda environment and dependencies
+- [x] Some initial training runs (wandb logs exist)
+
+**🚧 IN PROGRESS:**
+- [ ] Need to implement full BaseAgent interface
+- [ ] DrQ-v2 algorithm implementation
+- [ ] Structured agent classes following BaseAgent pattern
+
+**❌ TODO:**
+- [ ] Complete PPO agent inheriting from BaseAgent
+- [ ] Implement DrQ-v2 agent
+- [ ] Run baseline evaluations for both agents
+- [ ] Plan and implement improvements
+- [ ] Final comparison and report
+
+### Development Timeline (Updated based on current status)
+- [x] **Week 1**: Environment setup + algorithm selection ✅ DONE
+- [x] **Week 2**: Base implementations ✅ PPO basic version done, DrQ-v2 pending
+- [ ] **Week 3**: Complete implementations + baseline evaluations
+- [ ] **Week 4**: First and second improvements + evaluations
+- [ ] **Week 5**: Final comparison + report writing
+
+## Notes and Insights
+- Marking focuses on **process and design decisions**, not just performance
+- Results must be **reproducible**
+- Use **line graphs** for presenting episode returns (not tables)
+- Include **standard reward metrics** even if using reward shaping
+- Code quality matters: comments, README, run scripts, versioning
+
+## Important Links
+- **Crafter GitHub**: https://github.com/danijar/crafter
+- **Research Paper**: https://arxiv.org/pdf/2109.06780
+- **Skeleton Code**: https://github.com/rayrsys/Reinforcement-Learning-Project-2026-Crafter.git
+
+## Current Action Items (Updated)
+### IMMEDIATE PRIORITIES:
+1. **Complete BaseAgent implementations**: src/agents/base_agent.py has TODO(human) sections that need implementation
+2. **Implement DrQ-v2 agent**: External algorithm not covered in course
+3. **Run baseline evaluations**: Both PPO and DrQ-v2 need Eval 1 (baseline performance)
+
+### DISCOVERED INFRASTRUCTURE:
+- ✅ **Environment**: CrafterPartial-v1 properly set up with Gymnasium compatibility
+- ✅ **PPO**: Basic implementation exists in train.py (uses Stable-Baselines3)
+- ✅ **Evaluation**: Infrastructure exists (plotting, metrics reading)
+- ✅ **Logging**: Wandb integration already working
+- ⚠️ **Architecture**: Need to refactor to use BaseAgent pattern for consistency
+
+### CLEANED PROJECT STRUCTURE:
+```
+crafter-rl-project/
+├── src/
+│   ├── agents/
+│   │   ├── base_agent.py      # Shared interface
+│   │   └── drqv2_agent.py     # Anand's DrQ-v2
+│   ├── evaluation/            # Existing plotting tools
+│   └── utils/                 # DrQ-v2 utilities (replay buffer, etc.)
+├── results/                   # Training outputs
+├── models/                    # Saved checkpoints
+├── wandb/                     # Existing training logs
+├── train.py                   # Shared training script
+├── CLAUDE.md                  # This tracker
+└── README.md                  # Project overview
 ```
 
-### Training
-```bash
-# Train base agent
-python train.py --algorithm [ppo|dqn|rainbow|sac] --variant base --config configs/[algorithm]_base_config.yaml
+**REMOVED:** Empty directories (configs/, docs/, notebooks/, tests/, experiments/)
 
-# Train improved agent
-python train.py --algorithm [algorithm] --variant improvement[1|2] --config configs/[algorithm]_improvement[1|2]_config.yaml
+### IMMEDIATE ACTION PLAN:
+**Anand (You):**
+1. Complete TODO(human) sections in BaseAgent for DrQ-v2 needs
+2. Create `src/agents/drqv2_agent.py`
+3. Implement replay buffer and data augmentation utilities
+
+**Partner:**
+1. Complete TODO(human) sections in train.py for PPO (currently using Stable-Baselines3)
+2. Optionally create `src/agents/ppo_agent.py` for custom implementation
+
+**Both:**
+- Use shared `train.py` with `--algorithm` flag
+- Training: `python train.py --algorithm ppo` or `python train.py --algorithm drqv2`
+- Default: 1M steps, saves to `logdir/crafter_{algorithm}_{timestamp}/`
+
+### EVALUATION & TESTING:
+```bash
+# Full evaluation (100 episodes, comprehensive analysis)
+python evaluate.py --model_path models/ppo_model.zip --algorithm ppo --episodes 100
+
+# Quick test (10 episodes, basic metrics)
+python test_model.py models/ppo_model.zip ppo 10
+
+# Analyze existing training logdir
+python evaluate.py --logdir logdir/crafter_ppo_20250929_180000/ --algorithm ppo
 ```
 
-### Evaluation
-```bash
-# Evaluate agent performance
-python evaluate.py --checkpoint results/checkpoints/[model_name].pth --episodes 100
+**Outputs:**
+- 📊 Crafter Score (geometric mean of achievements)
+- 📈 Achievement unlock rates (all 22 achievements)
+- 🎯 Average reward and episode length
+- 📊 Plots (achievement rates, summary metrics)
+- 📄 JSON + text reports
 
-# Compare two agents
-python compare_agents.py --agent1 [name1] --agent2 [name2]
-```
-
-### Testing
-```bash
-# Run all tests
-pytest tests/
-
-# Run specific test suite
-pytest tests/test_agents.py -v
-```
-
-## Architecture Overview
-
-### Agent Implementation Flow
-1. **Base Implementation**: Start in `src/agents/course_algorithm/` or `src/agents/external_algorithm/`
-2. **Improvements**: Implement in `src/agents/improvements/` with clear versioning
-3. **Configuration**: Define hyperparameters in `configs/` directory
-4. **Training**: Use `train.py` with appropriate config
-5. **Evaluation**: Track metrics using `src/evaluation/evaluator.py`
-
-### Key Components
-
-#### Environment Wrapper (`src/environment/wrappers.py`)
-- Handles Gymnasium API compatibility
-- Preprocesses observations (64x64 RGB images)
-- Manages action space (17 discrete actions)
-- Tracks achievements and rewards
-
-#### Agent Base Class (`src/agents/base/base_agent.py`)
-- Defines common interface for all agents
-- Methods: `act()`, `learn()`, `save()`, `load()`
-
-#### Evaluation System (`src/evaluation/`)
-- Tracks 22 Crafter achievements
-- Calculates geometric mean of achievement rates
-- Monitors survival time and cumulative reward
-
-## Important Implementation Notes
-
-### Crafter Environment Specifics
-- **Observation Space**: 64x64x3 RGB images
-- **Action Space**: 17 discrete actions (movement, interaction, crafting)
-- **Rewards**: Survival (+1 per timestep) + Achievement bonuses
-- **Achievements**: 22 total (wood collection, tool crafting, combat, etc.)
-
-### Required Improvements (Non-trivial)
-Examples of valid improvements:
-- Image preprocessing (grayscale, normalization, feature extraction)
-- Reward shaping strategies
-- Network architecture modifications
-- Exploration strategy enhancements
-- Curriculum learning implementation
-- Memory/replay buffer optimizations
-
-Invalid improvements:
-- Simple hyperparameter tuning only
-- Minor code refactoring
-- Documentation changes
-
-### Evaluation Pipeline
-For each algorithm:
-1. Base implementation → Eval 1
-2. Improvement 1 → Eval 2
-3. Improvement 2 → Eval 3
-4. Final comparison between algorithms
-
-## File Organization
-
-### Experiment Tracking
-Each experiment should have:
-- `config.yaml`: Full configuration used
-- `metrics.json`: Performance metrics
-- `notes.md`: Design decisions and rationale
-- Model checkpoints in `results/checkpoints/`
-
-### Naming Conventions
-- Checkpoints: `[algorithm]_[variant]_[episode].pth`
-- Configs: `[algorithm]_[variant]_config.yaml`
-- Logs: `[date]_[algorithm]_[variant].log`
-
-## Common Issues and Solutions
-
-### GPU Memory
-- Reduce batch size if OOM errors occur
-- Use gradient accumulation for effective larger batches
-
-### Training Instability
-- Check learning rate scheduling
-- Verify reward normalization
-- Monitor gradient norms
-
-### Poor Performance
-- Ensure proper observation preprocessing
-- Verify action masking if applicable
-- Check exploration parameters
-
-## Dependencies
-Key packages (see requirements.txt for full list):
-- gymnasium
-- crafter
-- stable-baselines3 (if using)
-- torch/tensorflow
-- numpy
-- matplotlib
-- wandb (for experiment tracking)
+---
+*Last Updated: 2025-09-29*
+*Updated by: Claude*

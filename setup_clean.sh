@@ -5,62 +5,33 @@ echo "Crafter RL Project Setup"
 echo "==================================="
 echo ""
 
-# Check if conda is installed
-if ! command -v conda &> /dev/null; then
-    echo "Error: conda is not installed or not in PATH"
+# Check if Python 3.10+ is available
+if ! python3 --version | grep -E "3\.(10|11|12)" > /dev/null; then
+    echo "Error: Python 3.10+ is required"
+    echo "Current version: $(python3 --version)"
     exit 1
 fi
 
-# Remove old environment if it exists
-echo "Checking for existing environment..."
-if conda env list | grep -q "^crafter_rl_env "; then
-    echo "Removing existing crafter_rl_env..."
-    conda env remove -n crafter_rl_env -y
-fi
+# Create virtual environment
+echo "Creating virtual environment..."
+python3 -m venv venv
 
-# Create new environment
-echo ""
-echo "Creating new conda environment with Python 3.10..."
-conda create -n crafter_rl_env python=3.10 -y
+# Activate virtual environment
+echo "Activating virtual environment..."
+source venv/bin/activate
 
-echo ""
-echo "Activating environment..."
-eval "$(conda shell.bash hook)"
-conda activate crafter_rl_env
+# Upgrade pip and setuptools first
+echo "Upgrading pip and setuptools..."
+pip install --upgrade pip setuptools wheel
 
-# Install packages step by step
+# Install packages from requirements.txt
 echo ""
-echo "Installing core packages..."
-pip install --upgrade pip==23.3.1
-pip install setuptools==65.5.0 wheel numpy==1.24.3
+echo "Installing packages from requirements.txt..."
+pip install -r requirements.txt
 
+# All packages now installed from requirements.txt including crafter
 echo ""
-echo "Installing OpenCV and visualization tools..."
-pip install opencv-python==4.8.1.78 matplotlib==3.7.2 Pillow==10.0.0
-
-echo ""
-echo "Installing Gym and Gymnasium..."
-pip install pygame==2.5.2
-pip install gym==0.26.2
-pip install gymnasium==0.29.1
-pip install shimmy==1.3.0
-
-echo ""
-echo "Installing PyTorch (CPU version for Mac compatibility)..."
-pip install torch==2.0.1 torchvision==0.15.2
-
-echo ""
-echo "Installing Stable Baselines3..."
-pip install stable-baselines3==2.1.0
-
-echo ""
-echo "Installing Crafter from GitHub..."
-pip install git+https://github.com/danijar/crafter.git
-
-echo ""
-echo "Installing additional utilities and experiment tracking..."
-pip install tensorboard==2.14.0 tqdm==4.66.1 pyyaml==6.0.1 pandas==2.0.3
-pip install wandb seaborn jupyter
+echo "Installation complete!"
 
 echo ""
 echo "==================================="
@@ -68,11 +39,14 @@ echo "Setup Complete!"
 echo "==================================="
 echo ""
 echo "To activate the environment, run:"
-echo "  conda activate crafter_rl_env"
+echo "  source venv/bin/activate"
 echo ""
 echo "To test the setup:"
-echo "  python test_env.py"
+echo "  python test_env.py  # (create this file to test)"
 echo ""
-echo "To start training with W&B tracking:"
-echo "  wandb login  # First time only"
-echo "  python train.py --algorithm ppo --steps 100000 --wandb_project crafter-rl"
+echo "To start training:"
+echo "  python train.py --algorithm ppo --steps 1000000"
+echo "  python train.py --algorithm drqv2 --steps 1000000"
+echo ""
+echo "To evaluate models:"
+echo "  python evaluate.py --model_path models/model.zip --algorithm ppo"

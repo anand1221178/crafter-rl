@@ -110,8 +110,7 @@ class DrQv2Agent(BaseAgent):
 
         print(f"🚀 DrQ-v2 Agent initialized!")
         print(f"   Device: {self.device}")
-        print(f"   Q-network parameters: {sum(p.numel() for p in 
-    self.q_network.parameters()):,}")
+        print(f"   Q-network parameters: {sum(p.numel() for p in self.q_network.parameters()):,}")
         print(f"   Replay buffer capacity: {replay_buffer_size:,}")
 
     def act(self, observation: np.ndarray, training: bool = True) -> int:

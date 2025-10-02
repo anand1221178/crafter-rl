@@ -71,13 +71,17 @@ if torch.cuda.is_available():
 # Set environment variables
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export CUDA_VISIBLE_DEVICES=0
-export PYTHONPATH="${PWD}:${PYTHONPATH}"
 
-# Add user site-packages to Python path
-export PYTHONPATH="$HOME/.local/lib/python3.10/site-packages:${PYTHONPATH}"
+# Set PYTHONPATH to include project root (most important!)
+export PYTHONPATH="${PWD}:${PYTHONPATH}"
 
 # Create logs directory if it doesn't exist
 mkdir -p logs
+
+# Verify PYTHONPATH
+echo -e "\nPython path configured:"
+echo "PYTHONPATH=$PYTHONPATH"
+echo "Current directory: $(pwd)"
 
 # Run training
 echo -e "\n========================================================"

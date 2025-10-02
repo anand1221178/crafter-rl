@@ -80,7 +80,8 @@ class QNetwork(nn.Module):
         x = F.relu(self.conv4(x))
 
         # Flatten for MLP
-        x = x.view(x.size(0), -1)  # (batch_size, 1024)
+        # Use contiguous() to ensure tensor is in contiguous memory before view
+        x = x.contiguous().view(x.size(0), -1)  # (batch_size, flatten_size)
 
         # MLP Head
         x = F.relu(self.fc1(x))
@@ -172,7 +173,7 @@ class ImprovedQNetwork(QNetwork):
         x = F.relu(x)
 
         # Flatten and MLP head (same as base network)
-        x = x.view(x.size(0), -1)
+        x = x.contiguous().view(x.size(0), -1)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         q_values = self.q_values(x)

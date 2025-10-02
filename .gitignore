@@ -4,9 +4,6 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
-venv/
-ENV/
 build/
 develop-eggs/
 dist/
@@ -23,24 +20,37 @@ wheels/
 .installed.cfg
 *.egg
 
+# Virtual environments (don't commit venv)
+env/
+venv/
+ENV/
+
 # Jupyter Notebooks
 .ipynb_checkpoints
 *.ipynb_checkpoints/
 
-# Results and logs
-results/checkpoints/*.pth
-results/checkpoints/*.pt
-results/logs/
-results/plots/*.png
-results/plots/*.pdf
-*.log
+# Training outputs (keep directory structure, ignore contents)
+logdir/*
+!logdir/.gitkeep
+models/*.zip
+models/*.pt
+models/*.pth
+!models/.gitkeep
+results/*
+!results/.gitkeep
+logs/*.out
+logs/*.err
+!logs/.gitkeep
 
 # Tensorboard
 runs/
 tensorboard/
 
-# Weights & Biases
-wandb/
+# Weights & Biases (large logs)
+wandb/run-*/
+wandb/latest-run
+wandb/debug*.log
+!wandb/.gitkeep
 
 # IDE
 .vscode/
@@ -48,12 +58,13 @@ wandb/
 *.swp
 *.swo
 *~
+.claude/
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Environment
+# Environment secrets
 .env
 .env.local
 
@@ -62,21 +73,14 @@ Thumbs.db
 temp/
 tmp/
 
-# Large model files
+# Large model/data files
 *.h5
 *.pkl
 *.pickle
 *.ckpt
+*.jsonl
 
 # Video files
 *.mp4
 *.avi
 *.gif
-
-# Exclude everything in experiments except structure and notes
-experiments/*/*/*.json
-experiments/*/*/*.pth
-experiments/*/*/*.pt
-experiments/*/*/logs/
-!experiments/*/*/notes.md
-!experiments/*/*/config.yaml

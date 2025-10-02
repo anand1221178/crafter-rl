@@ -183,16 +183,16 @@ class DrQv2Agent(BaseAgent):
         # Sample batch from replay buffer
         batch = self.replay_buffer.sample_with_augmentation(self.batch_size)
 
-        # Convert to PyTorch tensors
+        # Convert to PyTorch tensors (create directly on device to avoid hangs)
         obs = self._batch_to_tensor(batch['obs'])
-        actions = torch.LongTensor(batch['action']).to(self.device)
+        actions = torch.tensor(batch['action'], dtype=torch.long, device=self.device)
 
         # CRITICAL: Clip rewards to prevent Q-value explosion
         # Crafter gives large achievement bonuses that destabilize training
-        rewards = torch.FloatTensor(batch['reward']).clamp(-1.0, 1.0).to(self.device)
+        rewards = torch.tensor(batch['reward'], dtype=torch.float32, device=self.device).clamp(-1.0, 1.0)
 
         next_obs = self._batch_to_tensor(batch['next_obs'])
-        dones = torch.BoolTensor(batch['done']).to(self.device)
+        dones = torch.tensor(batch['done'], dtype=torch.bool, device=self.device)
 
         # Current Q-values: Q(s, a)
         current_q_values = self.q_network(obs).gather(1,actions.unsqueeze(1)).squeeze(1)
@@ -284,7 +284,7 @@ class DrQv2Agent(BaseAgent):
     def _obs_to_tensor(self, obs: np.ndarray) -> torch.Tensor:
         """
         Convert numpy observation to PyTorch tensor.
-        
+
         Handles shape conversion from HWC to CHW and normalization.
         """
         if obs.ndim == 3:
@@ -296,13 +296,15 @@ class DrQv2Agent(BaseAgent):
         # Convert from HWC to CHW
         obs = obs.transpose(0, 3, 1, 2)
 
-        return torch.FloatTensor(obs).to(self.device)
+        # Create tensor directly on target device (avoids CPU→GPU transfer hang)
+        return torch.tensor(obs, dtype=torch.float32, device=self.device)
 
     def _batch_to_tensor(self, batch_obs: np.ndarray) -> torch.Tensor:
         """Convert batch of observations to tensor."""
         # Already normalized in replay buffer sampling
         batch_obs = batch_obs.transpose(0, 3, 1, 2)  # HWC to CHW
-        return torch.FloatTensor(batch_obs).to(self.device)
+        # Create tensor directly on target device
+        return torch.tensor(batch_obs, dtype=torch.float32, device=self.device)
 
     def _update_epsilon(self) -> None:
         """

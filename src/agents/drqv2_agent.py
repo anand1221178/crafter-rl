@@ -186,7 +186,11 @@ class DrQv2Agent(BaseAgent):
         # Convert to PyTorch tensors
         obs = self._batch_to_tensor(batch['obs'])
         actions = torch.LongTensor(batch['action']).to(self.device)
-        rewards = torch.FloatTensor(batch['reward']).to(self.device)
+
+        # CRITICAL: Clip rewards to prevent Q-value explosion
+        # Crafter gives large achievement bonuses that destabilize training
+        rewards = torch.FloatTensor(batch['reward']).clamp(-1.0, 1.0).to(self.device)
+
         next_obs = self._batch_to_tensor(batch['next_obs'])
         dones = torch.BoolTensor(batch['done']).to(self.device)
 

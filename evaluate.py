@@ -49,10 +49,9 @@ class CrafterEvaluator:
         self.setup_environment()
 
     def setup_environment(self):
-        """Setup Crafter environment for evaluation."""
-        register(id='CrafterPartial-v1', entry_point=crafter.Env)
-        self.env = old_gym.make('CrafterPartial-v1')
-        self.env = GymV21CompatibilityV0(env=self.env)
+        """Setup Crafter environment for evaluation (direct, no wrappers)."""
+        # Use Crafter directly without Gym wrappers to avoid API conflicts
+        self.env = crafter.Env()
 
     def load_model(self, model_path):
         """Load trained model based on algorithm type."""
@@ -107,7 +106,16 @@ class CrafterEvaluator:
                     # DrQ-v2 greedy action (no exploration during eval)
                     action = model.act(obs, training=False)
 
-                obs, reward, done, info = env.step(action)
+                # Handle both Gym APIs (4-tuple vs 5-tuple)
+                step_result = env.step(action)
+                if len(step_result) == 5:
+                    # New Gymnasium API: (obs, reward, terminated, truncated, info)
+                    obs, reward, terminated, truncated, info = step_result
+                    done = terminated or truncated
+                else:
+                    # Old Gym API: (obs, reward, done, info)
+                    obs, reward, done, info = step_result
+
                 episode_reward += reward
 
             if (episode + 1) % 10 == 0:

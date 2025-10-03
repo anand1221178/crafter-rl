@@ -32,10 +32,14 @@ ENV/
 # Training outputs (keep directory structure, ignore contents)
 logdir/*
 !logdir/.gitkeep
-models/*.zip
-models/*.pt
-models/*.pth
+
+# Models: ignore intermediate checkpoints, allow final models
+models/*_step_*.pt          # Ignore step checkpoints (drqv2_step_50000.pt)
+models/*_step_*.zip         # Ignore PPO checkpoints
+!models/*_final.pt          # Allow final DrQ-v2 models
+!models/*_final.zip         # Allow final PPO models
 !models/.gitkeep
+
 results/*
 !results/.gitkeep
 logs/*.out

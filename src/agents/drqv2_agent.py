@@ -196,12 +196,18 @@ class DrQv2Agent(BaseAgent):
 
         # Current Q-values: Q(s, a)
         current_q_values = self.q_network(obs).gather(1,actions.unsqueeze(1)).squeeze(1)
+        # Clip current Q-values to prevent numerical instability
+        current_q_values = current_q_values.clamp(-100.0, 100.0)
 
         # Target Q-values: r + γ * max_a Q_target(s', a)
         with torch.no_grad():
             next_q_values = self.target_network(next_obs).max(1)[0]
+            # Clip next Q-values to prevent bootstrapping from exploded values
+            next_q_values = next_q_values.clamp(-100.0, 100.0)
             # Set target to reward if episode ended (no future rewards)
             target_q_values = rewards + (self.gamma * next_q_values * ~dones)
+            # Clip final target Q-values for additional stability
+            target_q_values = target_q_values.clamp(-100.0, 100.0)
 
         # Compute loss
         loss = self.criterion(current_q_values, target_q_values)

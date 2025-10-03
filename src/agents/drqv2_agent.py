@@ -287,12 +287,20 @@ class DrQv2Agent(BaseAgent):
         print(f"   Training step: {self.training_step}")
         print(f"   Epsilon: {self.epsilon:.4f}")
 
-    def _obs_to_tensor(self, obs: np.ndarray) -> torch.Tensor:
+    def _obs_to_tensor(self, obs) -> torch.Tensor:
         """
         Convert numpy observation to PyTorch tensor.
 
         Handles shape conversion from HWC to CHW and normalization.
         """
+        # Handle tuple returns from some Gym environments (obs, info)
+        if isinstance(obs, tuple):
+            obs = obs[0]
+
+        # Convert to numpy if not already
+        if not isinstance(obs, np.ndarray):
+            obs = np.array(obs)
+
         if obs.ndim == 3:
             obs = obs[np.newaxis, ...]  # Add batch dimension
 

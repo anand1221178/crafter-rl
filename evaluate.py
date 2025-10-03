@@ -34,8 +34,9 @@ except ImportError:
     HAS_SB3 = False
     print("Warning: Stable Baselines3 not available. PPO evaluation may not work.")
 
-# TODO: Import custom agents when implemented
-# from src.agents.drqv2_agent import DrQv2Agent
+# Import custom agents
+from src.agents.drqv2_agent import DrQv2Agent
+import torch
 
 
 class CrafterEvaluator:
@@ -60,8 +61,15 @@ class CrafterEvaluator:
                 raise ImportError("Stable Baselines3 required for PPO evaluation")
             return PPO.load(model_path)
         elif self.algorithm == 'drqv2':
-            # TODO: Implement DrQ-v2 model loading
-            raise NotImplementedError("DrQ-v2 model loading not yet implemented")
+            # Load DrQ-v2 agent
+            device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            agent = DrQv2Agent(
+                observation_shape=(64, 64, 3),
+                num_actions=17,
+                device=device
+            )
+            agent.load(model_path)
+            return agent
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}")
 
@@ -96,8 +104,8 @@ class CrafterEvaluator:
                 if self.algorithm == 'ppo':
                     action, _ = model.predict(obs, deterministic=True)
                 elif self.algorithm == 'drqv2':
-                    # TODO: Implement DrQ-v2 action selection
-                    action = env.action_space.sample()  # Placeholder
+                    # DrQ-v2 greedy action (no exploration during eval)
+                    action = model.act(obs, training=False)
 
                 obs, reward, done, info = env.step(action)
                 episode_reward += reward

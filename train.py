@@ -76,8 +76,50 @@ print(f"Output directory: {outdir}")
 # TODO(human): Choose algorithm based on argument
 if args.algorithm == 'ppo':
     # Partner's work: Stable-baselines PPO
-    model = stable_baselines3.PPO('CnnPolicy', env, verbose=1)
+    print("🚀 Starting PPO training...")
+
+    # Detect device
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Using device: {device}")
+
+    # Create PPO model with device specification
+    model = stable_baselines3.PPO(
+        'CnnPolicy',
+        env,
+        verbose=1,
+        device=device,
+        # Optimized hyperparameters for Crafter
+        learning_rate=3e-4,
+        n_steps=2048,  # Steps per env before update
+        batch_size=64,
+        n_epochs=10,
+        gamma=0.99,
+        gae_lambda=0.95,
+        clip_range=0.2,
+        tensorboard_log=outdir
+    )
+
+    print(f"\n📊 PPO Configuration:")
+    print(f"  Total steps: {int(args.steps):,}")
+    print(f"  Learning rate: {model.learning_rate}")
+    print(f"  Batch size: {model.batch_size}")
+    print(f"  Device: {device}")
+    print(f"\n" + "="*50)
+    print("Starting training loop...")
+    print("="*50 + "\n")
+
+    # Train the model
     model.learn(total_timesteps=int(args.steps))
+
+    # Save the final model
+    model_path = os.path.join(outdir, 'ppo_final.zip')
+    model.save(model_path)
+
+    print(f"\n" + "="*50)
+    print("PPO Training Complete!")
+    print(f"  Model saved: {model_path}")
+    print(f"  Results saved: {outdir}")
+    print("="*50)
 elif args.algorithm == 'drqv2':
     # Anand's work: Custom DrQ-v2 implementation
     print("🚀 Starting DrQ-v2 training...")
@@ -109,8 +151,8 @@ elif args.algorithm == 'drqv2':
         gamma=0.99,
         batch_size=32,
         epsilon_start=1.0,
-        epsilon_end=0.01,
-        epsilon_decay_steps=100_000,
+        epsilon_end=0.05,  # Higher final epsilon for continued exploration
+        epsilon_decay_steps=750_000,  # Explore for 75% of training (was 10%!)
         tau=0.01,
         replay_buffer_size=100_000,
         min_replay_size=1000

@@ -11,22 +11,25 @@ from shimmy import GymV21CompatibilityV0
 from gym.envs.registration import register
 
 # Import custom agents
-# from src.agents.ppo_agent import PPOAgent  # Partner's work
-from src.agents.drqv2_agent import DrQv2Agent  # Anand's work
+from src.agents.dynaq_agent import DynaQAgent  # Dyna-Q (external algorithm)
 
-# Additional imports for DrQ-v2 training
+# Additional imports for training
 import torch
 import numpy as np
 import time
 from collections import defaultdict
 
 parser = argparse.ArgumentParser(description='Train RL agents on Crafter environment')
-parser.add_argument('--algorithm', type=str, choices=['ppo', 'drqv2'],
-                   default='ppo', help='Algorithm to train (ppo or drqv2)')
+parser.add_argument('--algorithm', type=str, choices=['ppo', 'dqn', 'dynaq'],
+                   default='ppo', help='Algorithm to train (ppo, dqn, or dynaq)')
 parser.add_argument('--outdir', default='logdir/crafter')
 parser.add_argument('--steps', type=float, default=1e6, help='Training steps (default: 1M)')
 parser.add_argument('--seed', type=int, default=42, help='Random seed')
 parser.add_argument('--eval_freq', type=int, default=50000, help='Evaluation frequency')
+# Dyna-Q specific arguments
+parser.add_argument('--planning_steps', type=int, default=5, help='Planning steps per real step (Dyna-Q only)')
+parser.add_argument('--prioritized', action='store_true', help='Use prioritized sweeping (Dyna-Q only)')
+parser.add_argument('--exploration_bonus', type=float, default=0.0, help='Exploration bonus κ for Dyna-Q+')
 args = parser.parse_args()
 
 # Simple wrapper to handle Gym API differences
@@ -120,9 +123,55 @@ if args.algorithm == 'ppo':
     print(f"  Model saved: {model_path}")
     print(f"  Results saved: {outdir}")
     print("="*50)
-elif args.algorithm == 'drqv2':
-    # Anand's work: Custom DrQ-v2 implementation
-    print("🚀 Starting DrQ-v2 training...")
+elif args.algorithm == 'dqn':
+    # Partner's work: Vanilla DQN using Stable-Baselines3
+    print("🚀 Starting DQN training...")
+
+    # Detect device
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print(f"Using device: {device}")
+
+    # Create DQN model
+    model = stable_baselines3.DQN(
+        'CnnPolicy',
+        env,
+        verbose=1,
+        device=device,
+        learning_rate=1e-4,
+        buffer_size=100000,
+        learning_starts=1000,
+        batch_size=32,
+        gamma=0.99,
+        exploration_fraction=0.75,  # Explore for 75% of training
+        exploration_final_eps=0.05,
+        tensorboard_log=outdir
+    )
+
+    print(f"\n📊 DQN Configuration:")
+    print(f"  Total steps: {int(args.steps):,}")
+    print(f"  Device: {device}")
+    print(f"\n" + "="*50)
+    print("Starting training loop...")
+    print("="*50 + "\n")
+
+    # Train the model
+    model.learn(total_timesteps=int(args.steps))
+
+    # Save the final model
+    model_path = os.path.join(outdir, 'dqn_final.zip')
+    model.save(model_path)
+
+    print(f"\n" + "="*50)
+    print("DQN Training Complete!")
+    print(f"  Model saved: {model_path}")
+    print(f"  Results saved: {outdir}")
+    print("="*50)
+
+elif args.algorithm == 'dynaq':
+    # Anand's work: Dyna-Q (model-based RL)
+    print("🚀 Starting Dyna-Q training...")
+    print(f"📚 Algorithm: Dyna-Q (Sutton & Barto, 2018, Ch. 8)")
+    print(f"🎯 Planning steps: {args.planning_steps} per real step")
 
     # Set random seeds for reproducibility
     torch.manual_seed(args.seed)
@@ -133,7 +182,7 @@ elif args.algorithm == 'drqv2':
     print(f"Using device: {device}")
 
     # Get environment information
-    obs = env.reset()  # Our wrapper handles API differences
+    obs = env.reset()
     observation_shape = obs.shape  # Should be (64, 64, 3)
     num_actions = env.action_space.n  # Should be 17
 
@@ -141,21 +190,24 @@ elif args.algorithm == 'drqv2':
     print(f"  Observation shape: {observation_shape}")
     print(f"  Number of actions: {num_actions}")
 
-    # Initialize DrQ-v2 agent
-    agent = DrQv2Agent(
+    # Initialize Dyna-Q agent
+    agent = DynaQAgent(
         observation_shape=observation_shape,
         num_actions=num_actions,
         device=device,
-        # Hyperparameters optimized for Crafter
-        learning_rate=3e-4,
+        # Q-learning hyperparameters
+        learning_rate=1e-4,
         gamma=0.99,
         batch_size=32,
         epsilon_start=1.0,
-        epsilon_end=0.05,  # Higher final epsilon for continued exploration
-        epsilon_decay_steps=750_000,  # Explore for 75% of training (was 10%!)
+        epsilon_end=0.05,
+        epsilon_decay_steps=750_000,  # Explore for 75% of training
         tau=0.01,
         replay_buffer_size=100_000,
-        min_replay_size=1000
+        min_replay_size=1000,
+        # Dyna-Q specific
+        planning_steps=args.planning_steps,
+        model_capacity=50_000,
     )
 
     # Training metrics
@@ -169,13 +221,17 @@ elif args.algorithm == 'drqv2':
     log_freq = 1000  # Log every 1000 steps
     save_freq = 50000  # Save model every 50k steps
 
-    print(f"\n📊 Training Configuration:")
+    print(f"\n📊 Dyna-Q Training Configuration:")
     print(f"  Total steps: {int(args.steps):,}")
+    print(f"  Planning steps per real step: {args.planning_steps}")
+    print(f"  Model capacity: 50,000 transitions")
+    print(f"  Prioritized sweeping: {args.prioritized}")
+    print(f"  Exploration bonus: {args.exploration_bonus}")
     print(f"  Log frequency: {log_freq:,} steps")
     print(f"  Save frequency: {save_freq:,} steps")
-    print(f"  Min replay size: {agent.min_replay_size:,}")
     print(f"\n" + "="*50)
-    print("Starting training loop...")
+    print("Starting Dyna-Q training loop...")
+    print("="*50 + "\n")
 
     # Training loop
     obs = env.reset()
@@ -189,7 +245,7 @@ elif args.algorithm == 'drqv2':
         # Take step in environment
         next_obs, reward, done, info = env.step(action)
 
-        # Store experience in replay buffer
+        # Store experience in replay buffer AND world model
         agent.store_experience(obs, action, reward, next_obs, done)
 
         # Update metrics
@@ -197,7 +253,7 @@ elif args.algorithm == 'drqv2':
         episode_step += 1
         total_steps += 1
 
-        # Update the agent (if enough data in replay buffer)
+        # Update the agent (direct RL + planning)
         update_metrics = agent.update()
 
         # Skip if agent couldn't update (not enough data yet)
@@ -225,12 +281,13 @@ elif args.algorithm == 'drqv2':
                       f"Steps: {total_steps:7,} | "
                       f"Avg Reward: {avg_reward:6.2f} | "
                       f"Avg Length: {avg_length:6.1f} | "
-                      f"ε: {agent.epsilon:.3f}")
+                      f"ε: {agent.epsilon:.3f} | "
+                      f"Model: {len(agent.world_model):5,}")
         else:
             obs = next_obs
 
         # Periodic logging
-        if total_steps % log_freq == 0 and update_metrics is not None:
+        if total_steps % log_freq == 0 and update_metrics:
             elapsed_time = time.time() - training_start_time
             steps_per_sec = total_steps / elapsed_time
 
@@ -239,8 +296,11 @@ elif args.algorithm == 'drqv2':
             print(f"  Steps/sec: {steps_per_sec:.1f}")
             print(f"  Episodes: {episode_count}")
             print(f"  Q-loss: {update_metrics.get('q_loss', 0):.4f}")
+            print(f"  Planning loss: {update_metrics.get('planning_loss', 0):.4f}")
             print(f"  Epsilon: {update_metrics.get('epsilon', 0):.3f}")
             print(f"  Replay buffer: {update_metrics.get('replay_buffer_size', 0):,}")
+            print(f"  World model transitions: {update_metrics.get('model_size', 0):,}")
+            print(f"  World model states: {update_metrics.get('model_num_states', 0):,}")
 
             if episode_rewards:
                 print(f"  Recent avg reward: {np.mean(episode_rewards[-10:]):.2f}")
@@ -248,25 +308,27 @@ elif args.algorithm == 'drqv2':
 
         # Periodic model saving
         if total_steps % save_freq == 0:
-            model_path = os.path.join(outdir, f'drqv2_step_{total_steps}.pt')
+            model_path = os.path.join(outdir, f'dynaq_step_{total_steps}.pt')
             agent.save(model_path)
             print(f"💾 Model saved at step {total_steps:,}")
 
     # Final save
-    final_model_path = os.path.join(outdir, 'drqv2_final.pt')
+    final_model_path = os.path.join(outdir, 'dynaq_final.pt')
     agent.save(final_model_path)
 
     # Training summary
     total_time = time.time() - training_start_time
     print(f"\n" + "="*50)
-    print(f" DrQ-v2 Training Complete!")
+    print(f"✅ Dyna-Q Training Complete!")
     print(f"  Total time: {total_time/60:.1f} minutes")
     print(f"  Total steps: {total_steps:,}")
     print(f"  Total episodes: {episode_count}")
     print(f"  Average reward: {np.mean(episode_rewards):.2f}")
     print(f"  Final epsilon: {agent.epsilon:.3f}")
+    print(f"  World model size: {len(agent.world_model):,} transitions")
     print(f"  Final model: {final_model_path}")
     print(f"  Results saved to: {outdir}")
+    print("="*50)
 
     # Close environment
     env.close()

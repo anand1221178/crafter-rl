@@ -2,14 +2,14 @@
 
 ## Project Overview
 Implementation of reinforcement learning agents for the Crafter survival game environment. This project implements two RL algorithms:
-1. **Course Algorithm**: TBD (will be chosen based on course content)
-2. **External Algorithm**: DrQ-v2 (Data-Regularized Q-Learning v2) - A state-of-the-art model-free RL algorithm for visual control
+1. **Course Algorithm**: DQN (Deep Q-Network) - Model-free value-based RL
+2. **External Algorithm**: Dyna-Q - Model-based RL with integrated planning
 
 Each algorithm will undergo iterative improvements to optimize performance in the challenging Crafter survival environment.
 
 ## Assignment Details
 - **Due Date**: October 22, 2025, 23:59
-- **Team Size**: Maximum 4 people
+- **Team Size**: 2 members
 - **Environment**: Crafter with partial observability (CrafterPartial-v1)
 - **Observation Space**: 64x64 RGB images
 - **Action Space**: 17 discrete actions
@@ -18,49 +18,37 @@ Each algorithm will undergo iterative improvements to optimize performance in th
 
 ```
 crafter-rl-project/
+├── crafter_env.yaml            # Conda environment specification
+├── CLAUDE.md                   # Project tracker with Dyna-Q strategy
+├── train.py                    # Unified training script (PPO, DQN, Dyna-Q)
+├── evaluate.py                 # Comprehensive evaluation script
+├── test_model.py               # Quick model testing script
+├── train_ppo.sbatch            # Cluster training script (PPO)
+├── train_dqn.sbatch            # Cluster training script (DQN)
+├── train_dynaq.sbatch          # Cluster training script (Dyna-Q)
 ├── src/
 │   ├── agents/
-│   │   ├── course_algorithm/     # Algorithm from course (e.g., PPO, DQN, A3C)
-│   │   ├── external_algorithm/   # External algorithm not covered in course
-│   │   ├── base/                 # Base implementations
-│   │   └── improvements/         # Iterative improvements
-│   ├── environment/
-│   │   └── wrappers.py          # Environment wrappers and preprocessing
+│   │   ├── base_agent.py       # Abstract base class for all agents
+│   │   └── dynaq_agent.py      # Dyna-Q implementation (to be implemented)
+│   ├── models/
+│   │   ├── world_model.py      # Environment dynamics model (to be implemented)
+│   │   └── prioritized_sweeping.py  # Priority queue for planning (to be implemented)
 │   ├── utils/
-│   │   ├── config.py           # Configuration management
-│   │   ├── logger.py           # Logging utilities
-│   │   └── metrics.py          # Performance metrics
-│   ├── evaluation/
-│   │   └── evaluator.py        # Agent evaluation scripts
-│   ├── visualization/
-│   │   └── plotter.py          # Results visualization
-│   └── preprocessing/
-│       └── observation.py      # Image preprocessing techniques
-├── configs/                     # Configuration files
-├── experiments/                 # Experiment tracking
-│   ├── algorithm1/
-│   │   ├── base/
-│   │   ├── improvement1/
-│   │   └── improvement2/
-│   └── algorithm2/
-│       ├── base/
-│       ├── improvement1/
-│       └── improvement2/
-├── results/
-│   ├── plots/                  # Generated plots
-│   ├── logs/                   # Training logs
-│   └── checkpoints/            # Model checkpoints
-├── docs/                       # Documentation
-├── tests/                      # Unit tests
-├── notebooks/                  # Jupyter notebooks for analysis
-├── requirements.txt            # Python dependencies
-├── environment.yml             # Conda environment
+│   │   ├── networks.py         # Q-network (CNN for 64x64 RGB)
+│   │   └── replay_buffer.py    # Experience replay
+│   └── evaluation/
+│       ├── plot_reward.py      # Reward plotting utilities
+│       ├── plot_scores.py      # Achievement score plotting
+│       └── read_metrics.py     # Metrics reading from Crafter logs
+├── models/                     # Saved model checkpoints
+├── results/                    # Training results and evaluations
+├── logdir/                     # Training logs (Crafter metrics)
 └── README.md                   # This file
 ```
 
 ## Key Metrics to Track
 1. **Achievement Unlock Rate**: Percentage of times each of 22 achievements is unlocked
-2. **Geometric Mean**: Overall score combining all achievements
+2. **Geometric Mean (Crafter Score)**: Overall score combining all achievements
 3. **Survival Time**: Average timesteps survived per episode
 4. **Cumulative Reward**: Total reward per episode
 
@@ -74,166 +62,248 @@ crafter-rl-project/
 
 ## Algorithms
 
-### Course Algorithm (TBD)
-Will be selected based on course content (likely PPO, DQN, or A3C)
+### Course Algorithm: DQN (Deep Q-Network)
+Model-free value-based RL using Stable-Baselines3 implementation:
+- Q-learning with neural network function approximation
+- Experience replay for sample efficiency
+- Target network for stable training
+- Epsilon-greedy exploration
 
-### External Algorithm: DrQ-v2
-**Data-Regularized Q-Learning v2** is a model-free RL algorithm specifically designed for visual control tasks. Key features:
-- Uses data augmentation (random shifts) for improved sample efficiency
-- Combines DQN with continuous control techniques
-- Particularly effective for pixel-based observations
-- State-of-the-art performance on visual RL benchmarks
+### External Algorithm: Dyna-Q (Model-Based RL)
+**Integrated Planning and Learning** - Classic model-based RL algorithm:
+- Learns environment dynamics (world model)
+- Combines real experience with simulated planning
+- Sample efficient: 1 real experience → N planning updates
+- Three phases of improvement:
+  1. **Eval 1**: Baseline Dyna-Q (random planning)
+  2. **Eval 2**: + Prioritized Sweeping (focused planning)
+  3. **Eval 3**: + Dyna-Q+ (exploration bonuses)
 
-## Potential Improvements to Explore
-- **Image preprocessing**: Grayscale conversion, frame stacking, normalization
-- **Data augmentation**: Random crops, color jittering (DrQ-v2 specialty)
-- **Reward shaping**: Survival bonuses, achievement rewards, exploration incentives
-- **Network architectures**: CNN encoders, attention mechanisms
-- **Exploration strategies**: ε-greedy variants, noise-based exploration
-- **Replay buffer enhancements**: Prioritized replay, n-step returns
-- **Curriculum learning**: Progressive task difficulty
+**Why Model-Based RL for Crafter?**
+- Sparse rewards benefit from planning (simulate rare experiences)
+- Multi-step reasoning (chop tree → wood → stick → sword)
+- Sample efficient learning from limited interactions
 
 ## Setup Instructions
 
-### Prerequisites
-- Conda (Miniforge/Anaconda/Miniconda)
-- Git
-- Python 3.10 (will be installed via conda)
+### Quick Setup (Recommended)
 
-### Quick Setup
-
-Run the automated setup script:
+**1. Create conda environment from YAML:**
 ```bash
-chmod +x setup_clean.sh
-./setup_clean.sh
+# Clone repository
+git clone <your-repo-url>
+cd crafter-rl-project
+
+# Create environment
+conda env create -f crafter_env.yaml
+conda activate crafter_env
+```
+
+**2. Verify installation:**
+```bash
+python -c "import torch; print(f'PyTorch: {torch.__version__}')"
+python -c "import crafter; print('Crafter: installed')"
+python -c "import stable_baselines3; print(f'SB3: {stable_baselines3.__version__}')"
 ```
 
 ### Manual Setup (Alternative)
 
-1. **Create conda environment with Python 3.10:**
+If you prefer manual installation:
+
 ```bash
-conda create -n crafter_rl_env python=3.10 -y
-conda activate crafter_rl_env
+# Create environment
+conda create -n crafter_env python=3.10 -y
+conda activate crafter_env
+
+# Install PyTorch (adjust for your CUDA version)
+conda install pytorch=2.8.0 -c pytorch -y
+
+# Install dependencies
+pip install stable-baselines3 crafter gymnasium shimmy wandb imageio imageio-ffmpeg
 ```
 
-2. **Install dependencies in order:**
+## 🧪 Local Testing Commands
+
+### Create Environment
 ```bash
-# Upgrade pip and setuptools
-pip install --upgrade pip==23.3.1 setuptools==65.5.0 wheel
-
-# Core packages
-pip install numpy==1.24.3 opencv-python matplotlib
-
-# Gym and Gymnasium with compatibility layer
-pip install pygame gym==0.26.2 gymnasium shimmy
-
-# PyTorch (CPU version for Mac compatibility)
-pip install torch==2.0.1 torchvision==0.15.2
-
-# RL Libraries
-pip install stable-baselines3==2.1.0
-
-# Install Crafter from GitHub
-pip install git+https://github.com/danijar/crafter.git
-
-# Additional utilities
-pip install tensorboard tqdm pyyaml pandas
+# Create conda environment locally
+conda env create -f crafter_env.yaml
+conda activate crafter_env
 ```
 
-3. **Fix OpenMP issue (Mac only):**
-If you encounter OpenMP errors on macOS:
+### Training Algorithms Locally
 ```bash
-export KMP_DUPLICATE_LIB_OK=TRUE
-# Or run the fix script:
-chmod +x fix_openmp.sh
-./fix_openmp.sh
+# Quick PPO test (10K steps, ~5 minutes)
+python train.py --algorithm ppo --steps 10000
+
+# Quick DQN test (10K steps, ~5 minutes)
+python train.py --algorithm dqn --steps 10000
+
+# Dyna-Q test (when implemented)
+python train.py --algorithm dynaq --steps 10000 --planning_steps 5
+
+# Full training (1M steps, ~4-8 hours on GPU)
+python train.py --algorithm dqn --steps 1000000
 ```
 
-### Verify Installation
-
-Test that everything is working:
+### Evaluating Models
 ```bash
-python test_env.py
+# Comprehensive evaluation (100 episodes, detailed analysis)
+python evaluate.py \
+    --model_path models/dqn_final.zip \
+    --algorithm dqn \
+    --episodes 100
+
+# Quick test (10 episodes, basic metrics)
+python test_model.py models/dqn_final.zip dqn 10
+
+# Evaluate from training logdir (analyze existing stats.jsonl)
+python evaluate.py \
+    --logdir logdir/crafter_dqn_20251005_180000/ \
+    --algorithm dqn \
+    --episodes 100
 ```
 
-You should see:
-- ✓ Environment created successfully
-- ✓ Random actions executed successfully
-- ✓ All tests passed!
+### Evaluation Outputs
+Evaluation generates:
+- 📊 Crafter Score (geometric mean of achievements)
+- 📈 Achievement unlock rates (all 22 achievements)
+- 🎯 Average reward and episode length
+- 📊 Plots (achievement rates, summary metrics)
+- 📄 JSON + text reports
 
-## Running Experiments
+## 🚀 Cluster Training Commands
 
-### Training Agents
+### Submit Training Jobs
 
-**Train with PPO (placeholder for course algorithm):**
 ```bash
-python train.py --algorithm ppo --steps 1e6 --env_type partial
+# Submit DQN training (partner's course algorithm)
+sbatch train_dqn.sbatch
+
+# Submit Dyna-Q training (external algorithm)
+sbatch train_dynaq.sbatch
+
+# Submit PPO training (baseline comparison)
+sbatch train_ppo.sbatch
 ```
 
-**Train with DQN:**
-```bash
-python train.py --algorithm dqn --steps 1e6 --env_type partial
-```
+### Monitor Jobs
 
-**Train with DrQ-v2 (external algorithm - to be implemented):**
 ```bash
-# Coming soon - will be in src/agents/external_algorithm/drqv2.py
-python train_drqv2.py --steps 1e6 --env_type partial
+# Check job status
+squeue -u $USER
+
+# View live logs
+tail -f logs/dqn_<job_id>.out
+tail -f logs/dynaq_<job_id>.out
+
+# Cancel job
+scancel <job_id>
 ```
 
 ### Training Options
-- `--algorithm`: Choose from ['ppo', 'dqn', 'sac']
-- `--env_type`: Choose from ['partial', 'reward', 'noreward']
-- `--steps`: Total training steps (default: 1e6)
-- `--eval_freq`: Evaluation frequency (default: 10000)
-- `--save_freq`: Checkpoint save frequency (default: 50000)
-- `--seed`: Random seed for reproducibility
-- `--device`: Device to use ['cpu', 'cuda', 'auto']
 
-### Monitoring Training
+All training scripts support the following arguments:
 
-Training logs and checkpoints are saved in `results/logs/[algorithm]_[env_type]_[timestamp]/`
-
-View tensorboard logs:
 ```bash
-tensorboard --logdir results/logs
+python train.py [OPTIONS]
+
+Options:
+  --algorithm {ppo,dqn,dynaq}  Algorithm to train
+  --steps STEPS                Training steps (default: 1M)
+  --seed SEED                  Random seed (default: 42)
+  --eval_freq FREQ             Evaluation frequency (default: 50K)
+
+  # Dyna-Q specific:
+  --planning_steps N           Planning steps per real step (default: 5)
+  --prioritized                Use prioritized sweeping
+  --exploration_bonus KAPPA    Exploration bonus for Dyna-Q+ (default: 0.0)
 ```
 
-### Evaluating Agents
-```bash
-# Coming soon
-python evaluate.py --checkpoint results/checkpoints/[model_name] --episodes 100
+## Training Results
+
+Results are saved in timestamped directories:
 ```
+logdir/crafter_{algorithm}_{timestamp}/
+├── stats.jsonl              # Episode statistics (Crafter format)
+├── {algorithm}_final.zip    # Final model checkpoint (SB3 format)
+└── {algorithm}_final.pt     # Final model checkpoint (PyTorch format)
+```
+
+## Implementation Status
+
+### ✅ Completed
+- [x] Project setup and conda environment
+- [x] Unified training script (PPO, DQN, Dyna-Q)
+- [x] Evaluation infrastructure
+- [x] Cluster training scripts (conda-based)
+- [x] Documentation (CLAUDE.md with Dyna-Q strategy)
+
+### 🚧 In Progress
+- [ ] Dyna-Q agent implementation (`src/agents/dynaq_agent.py`)
+- [ ] World model (`src/models/world_model.py`)
+- [ ] Prioritized sweeping (`src/models/prioritized_sweeping.py`)
+
+### 📋 Planned
+- [ ] Baseline Dyna-Q training (Eval 1)
+- [ ] Prioritized sweeping improvement (Eval 2)
+- [ ] Dyna-Q+ with exploration bonuses (Eval 3)
+- [ ] Final comparison (DQN vs Dyna-Q)
+- [ ] Report writing
+
+## Expected Results
+
+| Evaluation | Algorithm | Target Score | Key Feature |
+|------------|-----------|--------------|-------------|
+| **Eval 1** | Baseline Dyna-Q | 0.5-2% | Planning (5 steps/real step) |
+| **Eval 2** | + Prioritized Sweeping | 3-8% | Focused planning |
+| **Eval 3** | + Exploration Bonus | 8-15% | Directed exploration |
+
+**Sample Efficiency Analysis:**
+- **DQN (model-free)**: ~800K-1M steps to achieve 1% score
+- **Dyna-Q (model-based)**: ~200K-400K steps to achieve 1% score (2-5× faster)
 
 ## Technical Notes
 
-### Gymnasium/Gym Compatibility
-This project uses:
-- **Crafter**: Built with old Gym API (0.21-0.26)
-- **Stable Baselines3**: Requires modern Gymnasium API
-- **Shimmy**: Compatibility layer that bridges old Gym to Gymnasium
+### Crafter Environment
+- **Direct API**: Uses `crafter.Env()` directly (bypasses Gym/Gymnasium)
+- **Wrapper**: `CrafterWrapper` in train.py handles API normalization
+- **Recorder**: `crafter.Recorder` automatically logs stats.jsonl
+- **Observations**: 64×64×3 RGB numpy arrays
+- **Actions**: 17 discrete actions (0-16)
 
-The `src/environment/crafter_env.py` wrapper handles all conversions automatically, so you can use Crafter with modern RL libraries seamlessly.
+### Conda vs Pip
+This project uses **conda** for reproducible environments:
+- ✅ Consistent Python version (3.10)
+- ✅ Compatible PyTorch + CUDA on cluster
+- ✅ Faster package resolution
+- ✅ Better dependency isolation
 
-### Common Issues & Solutions
-
-1. **OpenMP Error on Mac**:
-   ```bash
-   export KMP_DUPLICATE_LIB_OK=TRUE
-   ```
-
-2. **ImportError with distutils**: Make sure you're using Python 3.10, not 3.12
-
-3. **Gym deprecation warnings**: These are suppressed in our wrapper, but are expected since Crafter uses old Gym internally
+### Cluster Configuration
+Scripts are configured for:
+- **Partition**: `bigbatch`
+- **GPUs**: 1 GPU per job (CUDA 12.6)
+- **CPUs**: 16 cores
+- **Time**: 24 hours
+- **Conda**: Auto-creates environment from YAML
 
 ## Team Members
-- Member 1: [Name] ([Student ID])
-- Member 2: [Name] ([Student ID])
-- Member 3: [Name] ([Student ID])
-- Member 4: [Name] ([Student ID])
+- **Anand Patel** (Student #: _TO_BE_FILLED_)
+  - Role: Dyna-Q Implementation (External Algorithm)
+- **Partner Name** (Student #: _TO_BE_FILLED_)
+  - Role: DQN Implementation (Course Algorithm)
 
 ## References
-- Crafter Paper: https://arxiv.org/pdf/2109.06780
-- Crafter GitHub: https://github.com/danijar/crafter
-- DrQ-v2 Paper: https://arxiv.org/abs/2107.09645
-- Skeleton Code: https://github.com/rayrsys/Reinforcement-Learning-Project-2026-Crafter.git
+
+### Papers
+1. **Dyna-Q**: Sutton & Barto 1996/2018 - Reinforcement Learning: An Introduction (Chapter 8)
+2. **Prioritized Sweeping**: Moore & Atkeson 1993
+3. **Crafter Benchmark**: Hafner 2021 - https://arxiv.org/abs/2109.06780
+
+### Code
+- **Crafter GitHub**: https://github.com/danijar/crafter
+- **Skeleton Code**: https://github.com/rayrsys/Reinforcement-Learning-Project-2026-Crafter.git
+- **Stable-Baselines3**: https://stable-baselines3.readthedocs.io/
+
+## License
+This project is for educational purposes as part of COMS4061A/COMS7071A coursework.

@@ -7,7 +7,8 @@ This is a simplified version of evaluate.py for quick testing.
 
 Usage:
     python test_model.py models/ppo_model.zip ppo
-    python test_model.py models/drqv2_model.zip drqv2
+    python test_model.py models/dqn_model.zip dqn
+    python test_model.py models/dynaq_model.pt dynaq
 """
 
 import sys
@@ -73,9 +74,9 @@ def main():
         print(f"❌ Model file not found: {model_path}")
         sys.exit(1)
 
-    if algorithm not in ['ppo', 'drqv2']:
+    if algorithm not in ['ppo', 'dqn', 'dynaq']:
         print(f"❌ Unknown algorithm: {algorithm}")
-        print("Supported: ppo, drqv2")
+        print("Supported: ppo, dqn, dynaq")
         sys.exit(1)
 
     quick_test(model_path, algorithm, episodes)

@@ -1,16 +1,16 @@
-#!/bin/bash
+∆#!/bin/bash
 
-#SBATCH --job-name=Crafter_PPO
+#SBATCH --job-name=Crafter_DQN
 #SBATCH --partition=bigbatch
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=24:00:00
-#SBATCH --output=logs/ppo_%j.out
-#SBATCH --error=logs/ppo_%j.err
+#SBATCH --output=logs/dqn_%j.out
+#SBATCH --error=logs/dqn_%j.err
 
 echo "========================================================"
-echo "Crafter PPO Training on $(hostname)"
+echo "Crafter DQN Training on $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Started at: $(date)"
 echo "========================================================"
@@ -72,12 +72,12 @@ mkdir -p logs
 
 # Run training
 echo -e "\n========================================================"
-echo "Starting PPO training on Crafter..."
+echo "Starting DQN training on Crafter..."
 echo "Training steps: 1,000,000"
 echo "========================================================"
 
 python train.py \
-    --algorithm ppo \
+    --algorithm dqn \
     --steps 1000000 \
     --seed 42 \
     --eval_freq 50000
@@ -92,7 +92,7 @@ echo "========================================================"
 # Show final results location
 if [ $EXITCODE -eq 0 ]; then
     echo -e "\nTraining completed successfully!"
-    echo "Results saved in: logdir/crafter_ppo_*/"
+    echo "Results saved in: logdir/crafter_dqn_*/"
 fi
 
 exit $EXITCODE

@@ -1,21 +1,21 @@
 #!/bin/bash
 
-#SBATCH --job-name=Crafter_DrQv2
+#SBATCH --job-name=Crafter_DynaQ
 #SBATCH --partition=bigbatch
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=24:00:00
-#SBATCH --output=logs/drqv2_%j.out
-#SBATCH --error=logs/drqv2_%j.err
+#SBATCH --output=logs/dynaq_%j.out
+#SBATCH --error=logs/dynaq_%j.err
 
 echo "========================================================"
-echo "Crafter DrQ-v2 Training on $(hostname)"
+echo "Crafter Dyna-Q Training on $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 echo "Started at: $(date)"
 echo "========================================================"
 
-# Setup paths
+# Setup CUDA paths
 export PATH="/usr/local/cuda-12.6/bin:$HOME/.local/bin:$PATH"
 export LD_LIBRARY_PATH="/usr/local/cuda-12.6/lib64:$LD_LIBRARY_PATH"
 
@@ -27,38 +27,34 @@ echo "Working directory: $(pwd)"
 echo -e "\nGPU Information:"
 nvidia-smi --query-gpu=name,memory.total,driver_version,compute_cap --format=csv
 
-# Use system Python directly
-PYTHON_CMD="/usr/bin/python3"
-echo -e "\nUsing system Python: $PYTHON_CMD"
-$PYTHON_CMD --version
+# Initialize conda (adjust path if needed)
+echo -e "\nInitializing conda..."
+source ~/miniconda3/etc/profile.d/conda.sh || source ~/anaconda3/etc/profile.d/conda.sh
 
-# Install pip for user if needed
-echo -e "\nEnsuring pip is available..."
-$PYTHON_CMD -m ensurepip --user 2>/dev/null || {
-    echo "Installing pip manually..."
-    curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    $PYTHON_CMD get-pip.py --user
-    rm get-pip.py
-}
+# Create/update conda environment from YAML
+echo -e "\nSetting up conda environment..."
+if conda env list | grep -q "^crafter_env "; then
+    echo "Environment 'crafter_env' exists, updating..."
+    conda env update -f crafter_env.yaml --prune
+else
+    echo "Creating environment 'crafter_env' from crafter_env.yaml..."
+    conda env create -f crafter_env.yaml
+fi
 
-# Upgrade pip
-echo -e "\nUpgrading pip..."
-$PYTHON_CMD -m pip install --user --upgrade pip
-
-# Install packages from requirements.txt to user directory
-echo -e "\nInstalling packages from requirements.txt..."
-$PYTHON_CMD -m pip install --user -r requirements.txt
+# Activate environment
+echo -e "\nActivating conda environment 'crafter_env'..."
+conda activate crafter_env
 
 # Verify installations
 echo -e "\nVerifying installations..."
-$PYTHON_CMD -c "import torch; print(f'PyTorch: {torch.__version__}')" || echo "PyTorch not found"
-$PYTHON_CMD -c "import gymnasium; print(f'Gymnasium: {gymnasium.__version__}')" || echo "Gymnasium not found"
-$PYTHON_CMD -c "import crafter; print(f'Crafter: installed')" || echo "Crafter not found"
-$PYTHON_CMD -c "import numpy; print(f'NumPy: {numpy.__version__}')" || echo "NumPy not found"
+python -c "import torch; print(f'PyTorch: {torch.__version__}')"
+python -c "import gymnasium; print(f'Gymnasium: {gymnasium.__version__}')"
+python -c "import stable_baselines3; print(f'SB3: {stable_baselines3.__version__}')"
+python -c "import crafter; print('Crafter: installed')"
 
 # Verify GPU access
 echo -e "\nVerifying GPU access..."
-$PYTHON_CMD -c "
+python -c "
 import torch
 print(f'CUDA available: {torch.cuda.is_available()}')
 if torch.cuda.is_available():
@@ -69,29 +65,23 @@ if torch.cuda.is_available():
 # Set environment variables
 export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK
 export CUDA_VISIBLE_DEVICES=0
-
-# Set PYTHONPATH to include project root (most important!)
 export PYTHONPATH="${PWD}:${PYTHONPATH}"
 
-# Create logs directory if it doesn't exist
+# Create logs directory
 mkdir -p logs
-
-# Verify PYTHONPATH
-echo -e "\nPython path configured:"
-echo "PYTHONPATH=$PYTHONPATH"
-echo "Current directory: $(pwd)"
 
 # Run training
 echo -e "\n========================================================"
-echo "Starting DrQ-v2 training on Crafter..."
+echo "Starting Dyna-Q training on Crafter..."
 echo "Training steps: 1,000,000"
+echo "Planning steps: 5 per real step"
 echo "========================================================"
 
-# Run DrQ-v2 training (1M steps as per assignment)
-$PYTHON_CMD train.py \
-    --algorithm drqv2 \
+python train.py \
+    --algorithm dynaq \
     --steps 1000000 \
     --seed 42 \
+    --planning_steps 5 \
     --eval_freq 50000
 
 EXITCODE=$?
@@ -104,8 +94,7 @@ echo "========================================================"
 # Show final results location
 if [ $EXITCODE -eq 0 ]; then
     echo -e "\nTraining completed successfully!"
-    echo "Results saved in: logdir/crafter_drqv2_*/"
-    echo "Model saved in: models/"
+    echo "Results saved in: logdir/crafter_dynaq_*/"
 fi
 
 exit $EXITCODE

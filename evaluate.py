@@ -7,7 +7,8 @@ to evaluate trained models and generate comprehensive performance reports.
 
 Usage:
     python evaluate.py --model_path models/ppo_model.zip --algorithm ppo --episodes 100
-    python evaluate.py --logdir logdir/crafter_drqv2_20250929_180000/ --algorithm drqv2 --episodes 100
+    python evaluate.py --logdir logdir/crafter_dqn_20251005_180000/ --algorithm dqn --episodes 100
+    python evaluate.py --logdir logdir/crafter_dynaq_20251005_180000/ --algorithm dynaq --episodes 100
 """
 
 import argparse
@@ -35,7 +36,7 @@ except ImportError:
     print("Warning: Stable Baselines3 not available. PPO evaluation may not work.")
 
 # Import custom agents
-from src.agents.drqv2_agent import DrQv2Agent
+from src.agents.dynaq_agent import DynaQAgent
 import torch
 
 
@@ -59,10 +60,15 @@ class CrafterEvaluator:
             if not HAS_SB3:
                 raise ImportError("Stable Baselines3 required for PPO evaluation")
             return PPO.load(model_path)
-        elif self.algorithm == 'drqv2':
-            # Load DrQ-v2 agent
+        elif self.algorithm == 'dqn':
+            if not HAS_SB3:
+                raise ImportError("Stable Baselines3 required for DQN evaluation")
+            from stable_baselines3 import DQN
+            return DQN.load(model_path)
+        elif self.algorithm == 'dynaq':
+            # Load Dyna-Q agent
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            agent = DrQv2Agent(
+            agent = DynaQAgent(
                 observation_shape=(64, 64, 3),
                 num_actions=17,
                 device=device
@@ -100,10 +106,10 @@ class CrafterEvaluator:
             episode_reward = 0
 
             while not done:
-                if self.algorithm == 'ppo':
+                if self.algorithm in ['ppo', 'dqn']:
                     action, _ = model.predict(obs, deterministic=True)
-                elif self.algorithm == 'drqv2':
-                    # DrQ-v2 greedy action (no exploration during eval)
+                elif self.algorithm == 'dynaq':
+                    # Dyna-Q greedy action (no exploration during eval)
                     action = model.act(obs, training=False)
 
                 # Handle both Gym APIs (4-tuple vs 5-tuple)
@@ -339,7 +345,7 @@ def main():
     parser = argparse.ArgumentParser(description='Evaluate Crafter RL agents')
     parser.add_argument('--model_path', type=str, help='Path to trained model file (.zip)')
     parser.add_argument('--logdir', type=str, help='Path to training logdir (alternative to model_path)')
-    parser.add_argument('--algorithm', type=str, choices=['ppo', 'drqv2'],
+    parser.add_argument('--algorithm', type=str, choices=['ppo', 'dqn', 'dynaq'],
                        required=True, help='Algorithm type')
     parser.add_argument('--episodes', type=int, default=100,
                        help='Number of evaluation episodes')

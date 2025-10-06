@@ -190,21 +190,21 @@ elif args.algorithm == 'dynaq':
     print(f"  Observation shape: {observation_shape}")
     print(f"  Number of actions: {num_actions}")
 
-    # Initialize Dyna-Q agent
+    # Initialize Dyna-Q agent with improved baseline hyperparameters
     agent = DynaQAgent(
         observation_shape=observation_shape,
         num_actions=num_actions,
         device=device,
-        # Q-learning hyperparameters
-        learning_rate=1e-4,
+        # Q-learning hyperparameters (improved baseline)
+        learning_rate=3e-4,  # 3x higher for faster learning
         gamma=0.99,
         batch_size=32,
         epsilon_start=1.0,
-        epsilon_end=0.05,
-        epsilon_decay_steps=750_000,  # Explore for 75% of training
-        tau=0.01,
+        epsilon_end=0.1,  # Keep 10% exploration at end
+        epsilon_decay_steps=900_000,  # Explore for 90% of training
+        tau=0.005,  # Slower target updates
         replay_buffer_size=100_000,
-        min_replay_size=1000,
+        min_replay_size=5000,  # More initial exploration
         # Dyna-Q specific
         planning_steps=args.planning_steps,
         model_capacity=50_000,

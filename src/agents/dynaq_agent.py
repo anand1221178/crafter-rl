@@ -68,15 +68,15 @@ class DynaQAgent(BaseAgent):
         num_actions: int = 17,
         device: str = 'cpu',
         # Q-learning hyperparameters
-        learning_rate: float = 1e-4,
+        learning_rate: float = 3e-4,  # Increased from 1e-4 for faster learning
         gamma: float = 0.99,
         batch_size: int = 32,
         epsilon_start: float = 1.0,
-        epsilon_end: float = 0.05,
-        epsilon_decay_steps: int = 750_000,
-        tau: float = 0.01,
+        epsilon_end: float = 0.1,  # Higher final epsilon (more exploration)
+        epsilon_decay_steps: int = 900_000,  # Slower decay (90% of 1M steps)
+        tau: float = 0.005,  # Slower target network updates for stability
         replay_buffer_size: int = 100_000,
-        min_replay_size: int = 1000,
+        min_replay_size: int = 5000,  # More samples before training starts
         # Dyna-Q specific hyperparameters
         planning_steps: int = 5,
         model_capacity: int = 50_000,

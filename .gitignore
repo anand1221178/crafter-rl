@@ -33,15 +33,24 @@ ENV/
 logdir/*
 !logdir/.gitkeep
 
-# Models: ignore intermediate checkpoints, allow final models
-models/*_step_*.pt          # Ignore step checkpoints (drqv2_step_50000.pt)
-models/*_step_*.zip         # Ignore PPO checkpoints
-!models/*_final.pt          # Allow final DrQ-v2 models
-!models/*_final.zip         # Allow final PPO models
+# Models: ignore ALL models except final eval models
+models/*                    # Ignore all models by default
 !models/.gitkeep
+!models/dynaq/              # Allow dynaq folder
+!models/dqn/                # Allow dqn folder
+!models/ppo/                # Allow ppo folder
+models/dynaq/*              # Ignore contents
+models/dqn/*
+models/ppo/*
+!models/dynaq/*_eval*.pt    # Allow eval models (dynaq_baseline_eval1.pt, etc)
+!models/dqn/*_eval*.pt
+!models/ppo/*_eval*.zip
 
+# Results: allow evaluation results, ignore training logs
 results/*
 !results/.gitkeep
+!results/eval*              # Allow eval result folders
+results/eval*/stats.jsonl   # But allow stats.jsonl in eval folders
 logs/*.out
 logs/*.err
 !logs/.gitkeep
@@ -82,7 +91,9 @@ tmp/
 *.pkl
 *.pickle
 *.ckpt
+# Ignore jsonl except in eval results
 *.jsonl
+!results/eval*/*.jsonl
 
 # Video files
 *.mp4

@@ -75,12 +75,13 @@ export PYTHONPATH="${PWD}:${PYTHONPATH}"
 # Create logs directory
 mkdir -p logs
 
-# Run training with improved baseline hyperparameters
+# Run training with STABLE baseline hyperparameters
 echo -e "\n========================================================"
-echo "Starting Dyna-Q BASELINE training on Crafter..."
+echo "Starting Dyna-Q BASELINE training on Crafter (STABLE)"
 echo "Training steps: 1,000,000"
 echo "Planning steps: 5 per real step"
-echo "Hyperparameters: lr=3e-4, eps_end=0.1, min_replay=5000"
+echo "Stability fixes: Huber loss, gradient clip=1.0, reward clip±10"
+echo "Hyperparameters: lr=1e-4, eps_end=0.1, min_replay=5000"
 echo "========================================================"
 
 $PYTHON_CMD train.py \

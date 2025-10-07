@@ -195,8 +195,8 @@ elif args.algorithm == 'dynaq':
         observation_shape=observation_shape,
         num_actions=num_actions,
         device=device,
-        # Q-learning hyperparameters (improved baseline)
-        learning_rate=3e-4,  # 3x higher for faster learning
+        # Q-learning hyperparameters (stable baseline)
+        learning_rate=1e-4,  # Lower LR for stability (prevent Q-value explosion)
         gamma=0.99,
         batch_size=32,
         epsilon_start=1.0,
@@ -245,8 +245,12 @@ elif args.algorithm == 'dynaq':
         # Take step in environment
         next_obs, reward, done, info = env.step(action)
 
+        # Clip reward for stability (prevent Q-value explosion)
+        # Crafter rewards are typically -1 to +1, but clip to be safe
+        clipped_reward = np.clip(reward, -10.0, 10.0)
+
         # Store experience in replay buffer AND world model
-        agent.store_experience(obs, action, reward, next_obs, done)
+        agent.store_experience(obs, action, clipped_reward, next_obs, done)
 
         # Update metrics
         episode_reward += reward

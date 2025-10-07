@@ -68,7 +68,7 @@ class DynaQAgent(BaseAgent):
         num_actions: int = 17,
         device: str = 'cpu',
         # Q-learning hyperparameters
-        learning_rate: float = 3e-4,  # Increased from 1e-4 for faster learning
+        learning_rate: float = 1e-4,  # Lower LR for stability
         gamma: float = 0.99,
         batch_size: int = 32,
         epsilon_start: float = 1.0,
@@ -106,7 +106,9 @@ class DynaQAgent(BaseAgent):
         self.target_network.eval()
 
         self.optimizer = optim.Adam(self.q_network.parameters(), lr=learning_rate)
-        self.criterion = nn.MSELoss()
+        # Use Huber loss instead of MSE for stability (robust to outliers)
+        # Reference: Mnih et al. (2015) - helps prevent Q-value explosion
+        self.criterion = nn.SmoothL1Loss()  # Huber loss in PyTorch
 
         # Replay buffer for direct RL
         self.replay_buffer = ReplayBuffer(capacity=replay_buffer_size)
@@ -281,8 +283,8 @@ class DynaQAgent(BaseAgent):
         # Optimize
         self.optimizer.zero_grad()
         loss.backward()
-        # Gradient clipping for stability
-        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=10.0)
+        # Gradient clipping for stability (tighter clipping prevents explosion)
+        torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
         self.optimizer.step()
 
         return loss.item()
@@ -348,7 +350,7 @@ class DynaQAgent(BaseAgent):
             # Optimize
             self.optimizer.zero_grad()
             loss.backward()
-            torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=10.0)
+            torch.nn.utils.clip_grad_norm_(self.q_network.parameters(), max_norm=1.0)
             self.optimizer.step()
 
             total_planning_loss += loss.item()

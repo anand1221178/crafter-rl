@@ -53,6 +53,7 @@ dependencies:
       - shimmy
       - stable-baselines3
       - gymnasium
+      - gym  # Old gym needed for Crafter compatibility
       - wandb
       - imageio
       - imageio-ffmpeg

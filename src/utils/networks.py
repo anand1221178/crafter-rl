@@ -1,11 +1,13 @@
 """
-Neural Network Architectures for DrQ-v2
+Neural Network Architectures for RL Agents
+Includes Q-Networks (DQN) and Actor-Critic (PPO)
 """
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 from typing import Tuple, Optional
+from torch.distributions import Categorical
 
 class QNetwork(nn.Module):
     """Deeep Q network for processing visual observations"""
@@ -242,3 +244,189 @@ if __name__ == "__main__":
     # Count parameters
     total_params = sum(p.numel() for p in net.parameters())
     print(f"Total parameters: {total_params:,}")
+
+
+# ============================================================================
+# PPO Actor-Critic Network
+# ============================================================================
+
+class ActorCritic(nn.Module):
+    """
+    Actor-Critic network for PPO with shared CNN backbone.
+
+    Architecture:
+        - Shared CNN: Extracts visual features from 64x64 RGB observations
+        - Actor head: Maps features to action probabilities (policy π(a|s))
+        - Critic head: Maps features to state value V(s)
+
+    The shared backbone allows both policy and value to learn from the same
+    visual representations, improving sample efficiency.
+    """
+
+    def __init__(self, num_actions: int = 17, hidden_dim: int = 512):
+        """
+        Initialize Actor-Critic network.
+
+        Args:
+            num_actions: Number of discrete actions (17 for Crafter)
+            hidden_dim: Hidden dimension for policy/value heads (default 512)
+
+        Note: Input shape is fixed to (3, 64, 64) for Crafter environment
+        """
+        super(ActorCritic, self).__init__()
+
+        self.num_actions = num_actions
+
+        # Shared CNN backbone (same architecture as Q-network for consistency)
+        # Processes 64x64 RGB images into feature vectors
+        self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1)   # 64x64 -> 32x32
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)  # 32x32 -> 16x16
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=2, padding=1)  # 16x16 -> 8x8
+
+        # Calculate flattened feature size: 64 channels * 8 * 8 = 4096
+        self.feature_size = 64 * 8 * 8
+
+        # Actor head (policy network)
+        # Maps features to action logits (unnormalized log probabilities)
+        self.actor = nn.Sequential(
+            nn.Linear(self.feature_size, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, num_actions)
+        )
+
+        # Critic head (value network)
+        # Maps features to scalar state value V(s)
+        self.critic = nn.Sequential(
+            nn.Linear(self.feature_size, hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, 1)
+        )
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        """
+        Initialize network weights using orthogonal initialization.
+
+        Orthogonal initialization is recommended for PPO as it helps with
+        gradient flow and prevents vanishing/exploding gradients.
+        """
+        for module in self.modules():
+            if isinstance(module, nn.Conv2d) or isinstance(module, nn.Linear):
+                nn.init.orthogonal_(module.weight, gain=np.sqrt(2))
+                if module.bias is not None:
+                    nn.init.constant_(module.bias, 0)
+
+    def forward(self, obs: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        """
+        Forward pass through the network.
+
+        Args:
+            obs: Batch of observations, shape (batch_size, 3, 64, 64)
+                 Values should be in [0, 1] range
+
+        Returns:
+            action_logits: Unnormalized log probabilities, shape (batch_size, num_actions)
+            values: State values V(s), shape (batch_size, 1)
+        """
+        # Shared CNN feature extraction
+        x = F.relu(self.conv1(obs))
+        x = F.relu(self.conv2(x))
+        x = F.relu(self.conv3(x))
+
+        # Flatten features
+        x = x.contiguous().view(x.size(0), -1)  # (batch_size, feature_size)
+
+        # Actor: compute action logits
+        action_logits = self.actor(x)  # (batch_size, num_actions)
+
+        # Critic: compute state value
+        values = self.critic(x)  # (batch_size, 1)
+
+        return action_logits, values
+
+    def get_action(self, obs: torch.Tensor, deterministic: bool = False) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Sample an action from the policy.
+
+        Args:
+            obs: Observation tensor, shape (batch_size, 3, 64, 64) or (3, 64, 64)
+            deterministic: If True, return argmax action (for evaluation)
+                          If False, sample from policy distribution (for training)
+
+        Returns:
+            action: Selected action, shape (batch_size,)
+            log_prob: Log probability of the action, shape (batch_size,)
+            value: State value V(s), shape (batch_size, 1)
+        """
+        # Add batch dimension if needed
+        if obs.dim() == 3:
+            obs = obs.unsqueeze(0)
+
+        # Forward pass
+        action_logits, values = self.forward(obs)
+
+        # Create categorical distribution from logits
+        dist = Categorical(logits=action_logits)
+
+        if deterministic:
+            # Greedy action (for evaluation)
+            action = action_logits.argmax(dim=-1)
+        else:
+            # Sample action from policy (for training/exploration)
+            action = dist.sample()
+
+        # Compute log probability of the action
+        log_prob = dist.log_prob(action)
+
+        return action, log_prob, values
+
+    def evaluate_actions(self, obs: torch.Tensor, actions: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Evaluate actions taken in given states (used during PPO update).
+
+        This is the key method for computing the PPO loss. It re-evaluates
+        old actions under the current policy to compute the probability ratio.
+
+        Args:
+            obs: Batch of observations, shape (batch_size, 3, 64, 64)
+            actions: Batch of actions taken, shape (batch_size,)
+
+        Returns:
+            log_probs: Log probabilities of actions under current policy, shape (batch_size,)
+            values: State values V(s), shape (batch_size, 1)
+            entropy: Entropy of the policy distribution, shape (batch_size,)
+        """
+        # Forward pass
+        action_logits, values = self.forward(obs)
+
+        # Create distribution
+        dist = Categorical(logits=action_logits)
+
+        # Evaluate log probability of the given actions
+        log_probs = dist.log_prob(actions)
+
+        # Compute entropy (measure of policy randomness)
+        # Higher entropy = more exploration
+        entropy = dist.entropy()
+
+        return log_probs, values, entropy
+
+    def get_value(self, obs: torch.Tensor) -> torch.Tensor:
+        """
+        Get state value V(s) without sampling action.
+
+        Useful for computing advantages during rollout collection.
+
+        Args:
+            obs: Observation tensor, shape (batch_size, 3, 64, 64) or (3, 64, 64)
+
+        Returns:
+            values: State values, shape (batch_size, 1) or (1,)
+        """
+        if obs.dim() == 3:
+            obs = obs.unsqueeze(0)
+
+        _, values = self.forward(obs)
+        return values

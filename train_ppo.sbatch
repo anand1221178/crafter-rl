@@ -1,13 +1,13 @@
 #!/bin/bash
 
-#SBATCH --job-name=Crafter_PPO
+#SBATCH --job-name=Crafter_PPO_Baseline
 #SBATCH --partition=bigbatch
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=16
 #SBATCH --time=24:00:00
-#SBATCH --output=logs/ppo_%j.out
-#SBATCH --error=logs/ppo_%j.err
+#SBATCH --output=logs/ppo_baseline_%j.out
+#SBATCH --error=logs/ppo_baseline_%j.err
 
 echo "========================================================"
 echo "Crafter PPO Training on $(hostname)"
@@ -49,8 +49,8 @@ conda activate crafter_env
 echo -e "\nVerifying installations..."
 python -c "import torch; print(f'PyTorch: {torch.__version__}')"
 python -c "import gymnasium; print(f'Gymnasium: {gymnasium.__version__}')"
-python -c "import stable_baselines3; print(f'SB3: {stable_baselines3.__version__}')"
 python -c "import crafter; print('Crafter: installed')"
+python -c "import numpy; print(f'NumPy: {numpy.__version__}')"
 
 # Verify GPU access
 echo -e "\nVerifying GPU access..."
@@ -72,15 +72,34 @@ mkdir -p logs
 
 # Run training
 echo -e "\n========================================================"
-echo "Starting PPO training on Crafter..."
+echo "Starting PPO Baseline Training on Crafter..."
+echo "Algorithm: Custom PPO (Policy Gradient)"
 echo "Training steps: 1,000,000"
 echo "========================================================"
+echo "Hyperparameters:"
+echo "  n_steps: 2048 (rollout size)"
+echo "  batch_size: 64"
+echo "  n_epochs: 10"
+echo "  lr: 3e-4"
+echo "  gamma: 0.99"
+echo "  gae_lambda: 0.95"
+echo "  clip_epsilon: 0.2"
+echo "  entropy_coef: 0.01"
+echo "========================================================"
 
-python train.py \
-    --algorithm ppo \
+python train_ppo.py \
     --steps 1000000 \
     --seed 42 \
-    --eval_freq 50000
+    --n_steps 2048 \
+    --batch_size 64 \
+    --n_epochs 10 \
+    --lr 3e-4 \
+    --gamma 0.99 \
+    --gae_lambda 0.95 \
+    --clip_epsilon 0.2 \
+    --entropy_coef 0.01 \
+    --save_freq 50000 \
+    --outdir logs/ppo
 
 EXITCODE=$?
 
@@ -92,7 +111,12 @@ echo "========================================================"
 # Show final results location
 if [ $EXITCODE -eq 0 ]; then
     echo -e "\nTraining completed successfully!"
-    echo "Results saved in: logdir/crafter_ppo_*/"
+    echo "Results saved in: logs/ppo/ppo_baseline_*/"
+    echo ""
+    echo "Next steps:"
+    echo "1. Evaluate model: python evaluate.py --model_path logs/ppo/ppo_baseline_*/ppo_baseline_final.pt"
+    echo "2. Analyze results: Check logs/ppo/ppo_baseline_*/stats.jsonl for Crafter metrics"
+    echo "3. Compare with DQN baseline for report"
 fi
 
 exit $EXITCODE

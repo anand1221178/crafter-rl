@@ -36,7 +36,13 @@ except ImportError:
     print("Warning: Stable Baselines3 not available. PPO evaluation may not work.")
 
 # Import custom agents
-from src.agents.dynaq_agent import DynaQAgent
+try:
+    from src.agents.dynaq_agent import DynaQAgent
+    HAS_DYNAQ = True
+except ImportError:
+    HAS_DYNAQ = False
+
+from src.agents.ppo_agent import PPOAgent
 import torch
 
 
@@ -57,15 +63,29 @@ class CrafterEvaluator:
     def load_model(self, model_path):
         """Load trained model based on algorithm type."""
         if self.algorithm == 'ppo':
-            if not HAS_SB3:
-                raise ImportError("Stable Baselines3 required for PPO evaluation")
-            return PPO.load(model_path)
+            # Try custom PPO first (our implementation)
+            if model_path.endswith('.pt'):
+                device = 'mps' if torch.backends.mps.is_available() else ('cuda' if torch.cuda.is_available() else 'cpu')
+                agent = PPOAgent(
+                    observation_shape=(3, 64, 64),
+                    num_actions=17,
+                    device=device
+                )
+                agent.load(model_path)
+                return agent
+            # Otherwise try Stable-Baselines3 PPO
+            elif HAS_SB3:
+                return PPO.load(model_path)
+            else:
+                raise ImportError("Neither custom PPO checkpoint (.pt) nor Stable Baselines3 available")
         elif self.algorithm == 'dqn':
             if not HAS_SB3:
                 raise ImportError("Stable Baselines3 required for DQN evaluation")
             from stable_baselines3 import DQN
             return DQN.load(model_path)
         elif self.algorithm == 'dynaq':
+            if not HAS_DYNAQ:
+                raise ImportError("DynaQAgent not available")
             # Load Dyna-Q agent
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             agent = DynaQAgent(
@@ -106,10 +126,12 @@ class CrafterEvaluator:
             episode_reward = 0
 
             while not done:
-                if self.algorithm in ['ppo', 'dqn']:
+                # Get action based on model type
+                if hasattr(model, 'predict'):
+                    # Stable-Baselines3 models (PPO, DQN)
                     action, _ = model.predict(obs, deterministic=True)
-                elif self.algorithm == 'dynaq':
-                    # Dyna-Q greedy action (no exploration during eval)
+                else:
+                    # Custom agents (PPOAgent, DynaQAgent)
                     action = model.act(obs, training=False)
 
                 # Handle both Gym APIs (4-tuple vs 5-tuple)

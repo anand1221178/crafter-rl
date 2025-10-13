@@ -277,7 +277,7 @@ class ActorCritic(nn.Module):
 
         self.num_actions = num_actions
 
-        # Shared CNN backbone (same architecture as Q-network for consistency)
+        # Shared CNN backbone (3 layers - baseline architecture)
         # Processes 64x64 RGB images into feature vectors
         self.conv1 = nn.Conv2d(3, 32, kernel_size=3, stride=2, padding=1)   # 64x64 -> 32x32
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2, padding=1)  # 32x32 -> 16x16
@@ -330,7 +330,7 @@ class ActorCritic(nn.Module):
             action_logits: Unnormalized log probabilities, shape (batch_size, num_actions)
             values: State values V(s), shape (batch_size, 1)
         """
-        # Shared CNN feature extraction
+        # Shared CNN feature extraction (3 layers baseline)
         x = F.relu(self.conv1(obs))
         x = F.relu(self.conv2(x))
         x = F.relu(self.conv3(x))

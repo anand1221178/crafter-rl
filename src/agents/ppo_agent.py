@@ -49,7 +49,8 @@ class PPOAgent(BaseAgent):
                  entropy_coef: float = 0.01,
                  vf_coef: float = 0.5,
                  max_grad_norm: float = 0.5,
-                 normalize_advantages: bool = True):
+                 normalize_advantages: bool = True,
+                 dual_clip: Optional[float] = None):
         """
         Initialize PPO agent.
 
@@ -70,6 +71,7 @@ class PPOAgent(BaseAgent):
             vf_coef: Value function loss coefficient
             max_grad_norm: Gradient clipping threshold
             normalize_advantages: Whether to normalize advantages
+            dual_clip: Dual-clip coefficient (None to disable, typical: 3.0)
         """
         super().__init__(observation_shape, num_actions, device)
 
@@ -85,6 +87,7 @@ class PPOAgent(BaseAgent):
         self.vf_coef = vf_coef
         self.max_grad_norm = max_grad_norm
         self.normalize_advantages = normalize_advantages
+        self.dual_clip = dual_clip
 
         # Networks
         self.policy = ActorCritic(num_actions=num_actions, hidden_dim=hidden_dim).to(device)
@@ -207,11 +210,19 @@ class PPOAgent(BaseAgent):
 
                     # ===== PPO Loss Components =====
 
-                    # 1. Policy loss (clipped surrogate objective)
+                    # 1. Policy loss (clipped surrogate objective with optional dual-clip)
                     ratio = torch.exp(new_log_probs - mb_old_log_probs)
                     surr1 = ratio * mb_advantages
                     surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * mb_advantages
-                    policy_loss = -torch.min(surr1, surr2).mean()
+
+                    if self.dual_clip is not None:
+                        # Dual-clip: prevents conservative policy updates on negative advantages
+                        # surr3 = max(dual_clip * advantage, surr2)
+                        surr3 = torch.max(self.dual_clip * mb_advantages, surr2)
+                        policy_loss = -torch.min(surr1, surr3).mean()
+                    else:
+                        # Standard PPO clipping
+                        policy_loss = -torch.min(surr1, surr2).mean()
 
                     # 2. Value loss (clipped to prevent large updates)
                     if self.value_clip is not None:

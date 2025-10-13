@@ -26,8 +26,8 @@ def parse_args():
     parser.add_argument('--seed', type=int, default=42,
                        help='Random seed')
     parser.add_argument('--device', type=str, default='auto',
-                       choices=['auto', 'cuda', 'cpu'],
-                       help='Device to use')
+                       choices=['auto', 'cuda', 'mps', 'cpu'],
+                       help='Device to use (auto will detect MPS on Apple Silicon)')
 
     # PPO hyperparameters
     parser.add_argument('--n_steps', type=int, default=2048,
@@ -61,9 +61,14 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # Setup device
+    # Setup device (with MPS support for Apple Silicon)
     if args.device == 'auto':
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        if torch.cuda.is_available():
+            device = 'cuda'
+        elif torch.backends.mps.is_available():
+            device = 'mps'  # Apple Silicon GPU
+        else:
+            device = 'cpu'
     else:
         device = args.device
 

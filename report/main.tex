@@ -1,0 +1,461 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+% Packages
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{hyperref}
+\usepackage{booktabs}
+
+% Figure path
+\graphicspath{{../results/paper_figures/}}
+
+\begin{document}
+
+\title{Reinforcement Learning Project Report:\\Implementing and Comparing PPO and DQN on Crafter}
+
+\author{
+    \IEEEauthorblockN{Anand Patel}
+    \IEEEauthorblockA{\textit{School of Computer Science} \\
+    \textit{University of the Witwatersrand} \\
+    anand.patel@students.wits.ac.za}
+    \and
+    \IEEEauthorblockN{[Partner Name]}
+    \IEEEauthorblockA{\textit{School of Computer Science} \\
+    \textit{University of the Witwatersrand} \\
+    [partner.email]@students.wits.ac.za}
+}
+
+\maketitle
+
+\begin{abstract}
+This report documents our implementation of two reinforcement learning algorithms for the course project. We built PPO (Proximal Policy Optimization) and DQN (Deep Q-Network) agents to play Crafter, a 2D survival game. Starting from a weak baseline, we improved PPO from 5.08\% to 8.61\% through better hyperparameters, adding curiosity-driven exploration, and using a larger network. We tried 11 different approaches, with 7 failing to improve performance. This report explains what we implemented, what worked, what didn't, and what we learned about reinforcement learning in sparse-reward environments.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Reinforcement Learning, PPO, DQN, Crafter, Project Report
+\end{IEEEkeywords}
+
+\section{Introduction}
+
+\subsection{Project Goal}
+
+For this project, we implemented two reinforcement learning algorithms from scratch:
+\begin{itemize}
+    \item Proximal Policy Optimization (PPO) - Anand's implementation
+    \item Deep Q-Network (DQN) - [Partner]'s implementation
+\end{itemize}
+
+We trained both agents on Crafter and systematically tested improvements to understand what works for sparse-reward problems.
+
+\subsection{About Crafter}
+
+Crafter is a 2D survival game where the agent must gather resources, craft tools, and survive enemies. It's challenging because:
+
+\begin{itemize}
+    \item The agent only sees 64×64 RGB images
+    \item Rewards are very sparse (only ~1\% of actions get rewards)
+    \item Many tasks need multiple steps (e.g., get wood → build table → craft pickaxe → mine coal)
+    \item There are 22 different achievements to unlock
+\end{itemize}
+
+The Crafter Score is our main metric—it's the geometric mean of how often the agent unlocks each achievement. Higher scores mean the agent learned more skills.
+
+\subsection{The Two Algorithms}
+
+\textbf{PPO} learns a policy that outputs probabilities for each action. It's stable because it prevents big policy changes.
+
+\textbf{DQN} learns which actions are best by estimating their values. It's sample-efficient because it reuses past experiences.
+
+\subsection{Report Organization}
+
+Section II describes PPO implementation and results. Section III covers DQN. Section IV compares both approaches.
+
+\section{PPO Implementation and Results}
+
+\subsection{How PPO Works}
+
+PPO learns a policy $\pi_\theta(a|s)$ that maps what the agent sees to action probabilities. The key idea is the clipped objective function:
+
+\begin{equation}
+L(\theta) = \min(r_t \cdot A_t, \text{clip}(r_t, 0.8, 1.2) \cdot A_t)
+\end{equation}
+
+where $r_t$ is how much the new policy differs from the old one, and $A_t$ is the advantage (how good an action was compared to average).
+
+The clipping keeps updates small and prevents the agent from changing too drastically, which makes training stable.
+
+\subsection{Our Implementation}
+
+\textbf{Neural Network Architecture:}
+
+We used an actor-critic network with shared convolutional layers:
+\begin{itemize}
+    \item 3 convolutional layers to process the 64×64×3 images
+    \item Actor head: outputs probabilities for 17 actions
+    \item Critic head: outputs a value estimate
+    \item Tested 512 and 1024 hidden dimensions
+\end{itemize}
+
+\textbf{Training Setup:}
+\begin{itemize}
+    \item Collected 2048 steps of gameplay
+    \item Trained on this data for 10 epochs
+    \item Used mini-batches of 64 samples
+    \item Ran for 1 million total steps per experiment
+    \item Each run took about 2.5 hours on M4 MacBook Pro
+\end{itemize}
+
+\subsection{Evaluation 1: Baseline Results}
+
+\textbf{Our Approach:} We started with an initial configuration using common PPO values to establish baseline performance.
+
+\textbf{Settings:}
+\begin{itemize}
+    \item Learning rate: 0.001
+    \item Entropy coefficient: 0.0001
+\end{itemize}
+
+\textbf{Results:}
+\begin{itemize}
+    \item Crafter Score: \textbf{5.08\%}
+    \item The agent learned to gather wood (90\%) and saplings (85\%)
+    \item It could build tables (75\%)
+    \item BUT: Never crafted tools, never found coal, died quickly (165 step episodes)
+\end{itemize}
+
+\textbf{Why it struggled:} The learning rate was too high (caused instability) and entropy was too low (agent didn't explore enough).
+
+\subsection{Evaluation 2: Fixing Hyperparameters}
+
+\textbf{What we changed:} Used standard values from published implementations (CleanRL, Stable-Baselines3):
+\begin{itemize}
+    \item Learning rate: 0.0005 (2× slower)
+    \item Entropy coefficient: 0.001 (10× higher)
+\end{itemize}
+
+\textbf{Results:}
+\begin{itemize}
+    \item Crafter Score: \textbf{7.10\%} (+39.8\% improvement)
+    \item Wood pickaxe: 51\% (was 40\%)
+    \item Wood sword: 48\% (was 35\%)
+    \item Started defeating zombies: 48\% (was 30\%)
+\end{itemize}
+
+\textbf{Why it worked:} The slower learning rate kept training stable. Higher entropy kept the agent trying new things instead of getting stuck repeating the same actions.
+
+\subsection{Evaluation 3: Adding Curiosity}
+
+\textbf{The Problem:} With sparse rewards, the agent rarely discovers new achievements by accident. It needs help exploring.
+
+\textbf{Our Solution:} We added an Intrinsic Curiosity Module (ICM) that gives the agent bonus rewards for experiencing surprising situations.
+
+\textbf{How ICM Works:}
+\begin{enumerate}
+    \item A neural network tries to predict what will happen next
+    \item When the prediction is wrong (surprising situation), give reward
+    \item The agent learns to seek out these surprising situations
+    \item Eventually it finds rare achievements this way
+\end{enumerate}
+
+The agent now gets two types of rewards:
+\begin{itemize}
+    \item 80\% from actual achievements (extrinsic)
+    \item 20\% from curiosity (intrinsic)
+\end{itemize}
+
+\textbf{Results:}
+\begin{itemize}
+    \item Crafter Score: \textbf{8.27\%} (+16.5\% improvement)
+    \item Found coal: 1\% (was 0\% - rare achievement!)
+    \item Defeated skeleton: 3\% (was 0\% - very rare!)
+    \item Better zombie combat: 54\% (was 48\%)
+    \item Survived longer: 200 step episodes (was 182)
+\end{itemize}
+
+\textbf{Why it worked:} The curiosity bonus helped systematic exploration. The agent naturally explored early (high curiosity) then focused on achievements later (curiosity decreased).
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.48\textwidth]{fig6_icm_improvement2.pdf}
+\caption{ICM reward analysis for Evaluation 3. Top left: intrinsic (curiosity) vs extrinsic (achievement) rewards over training. Top right: curiosity/achievement ratio showing exploration-to-exploitation transition. Bottom: curiosity decay (agent learns) and achievement growth (agent succeeds). The 0.508 ratio shows good balance.}
+\label{fig:icm_eval3}
+\end{figure}
+
+\subsection{Evaluation 4: Bigger Network + Less Curiosity}
+
+\textbf{What we tried:} We combined two ideas:
+\begin{enumerate}
+    \item Made the network bigger (512 → 1024 neurons)
+    \item Reduced curiosity slightly (20\% → 15\%)
+\end{enumerate}
+
+\textbf{Why we thought this would work:}
+\begin{itemize}
+    \item Bigger network can remember more complex strategies
+    \item Less curiosity means more focus on actual goals
+\end{itemize}
+
+\textbf{Results:}
+\begin{itemize}
+    \item Crafter Score: \textbf{8.61\%} (+4.1\% improvement)
+    \item \textbf{Total improvement: 5.08\% → 8.61\% = +69.5\%}
+    \item Wood pickaxe: 58\%, Wood sword: 61\%
+    \item Coal: 2\% (doubled!)
+\end{itemize}
+
+\textbf{Surprising finding:} During training, the average reward was actually lower (5.14) than Evaluation 3 (6.27). But when we evaluated the final agent, it performed better! This taught us that training numbers don't always predict final performance.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.48\textwidth]{fig7_icm_improvement3.pdf}
+\caption{ICM reward analysis for Evaluation 4 with lower curiosity (β=0.15). The 0.483 ratio is slightly lower than Evaluation 3, showing more focus on achievements. Despite lower training rewards, this configuration achieved the best final score (8.61\%).}
+\label{fig:icm_eval4}
+\end{figure}
+
+\subsection{Things That Didn't Work}
+
+We tried 7 other strategies that failed. Documenting failures is important for learning:
+
+\subsubsection{RND Curiosity (6.11\%)}
+
+We tried a simpler curiosity method called Random Network Distillation. We attempted this 3 times with different fixes, but all failed.
+
+\textbf{What went wrong:} The curiosity rewards were way too high (42.28 vs ICM's 3.08). The agent got addicted to exploring and never focused on achievements—a "curiosity trap."
+
+\textbf{Lesson learned:} Simpler isn't always better. RND's random features didn't capture what's actually important in Crafter.
+
+\subsubsection{Too Much Curiosity (6.38\%)}
+
+We tried increasing curiosity from 20\% to 30\%.
+
+\textbf{What went wrong:} Another curiosity trap. The agent spent all its time exploring instead of achieving goals.
+
+\textbf{Lesson learned:} Balance is critical. Too much curiosity is as bad as too little.
+
+\subsubsection{Too Much Randomness (4.86\% and 6.08\%)}
+
+We tried higher entropy coefficients (0.005 and 0.002 instead of 0.001).
+
+\textbf{What went wrong:} The agent's policy stayed too random. It never settled on good strategies.
+
+\textbf{Lesson learned:} The agent needs to commit to strategies it learns. Too much randomness prevents this.
+
+\subsubsection{Slower Learning (8.11\%)}
+
+We tried a learning rate of 0.0001 (5× slower).
+
+\textbf{What went wrong:} Got close to baseline (8.11\% vs 8.27\%) but learned too slowly for 1 million steps.
+
+\textbf{Lesson learned:} Learning rate needs to match training time budget.
+
+\subsubsection{Training Longer (7.52\%)}
+
+We tried 1.5 million steps instead of 1 million (50\% more training).
+
+\textbf{What went wrong:} Performance got worse! Dropped from 8.27\% to 7.52\%.
+
+\textbf{Lesson learned:} More training doesn't always help. PPO can degrade because it keeps learning from old experiences that are no longer relevant.
+
+\subsubsection{Dual-Clip PPO (5.79\%)}
+
+We tried a PPO variant that clips differently for positive vs negative advantages.
+
+\textbf{What went wrong:} Made training unstable when combined with curiosity.
+
+\textbf{Lesson learned:} Test modifications carefully. Dual-clip works in some situations but not ours.
+
+\subsubsection{Just Bigger Network (8.36\%)}
+
+We tried only increasing network size without changing curiosity.
+
+\textbf{What happened:} This actually worked (8.36\%) but not as well as combining both changes (8.61\%).
+
+\textbf{Lesson learned:} Combining improvements can work better than individual changes.
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.48\textwidth]{fig4_failed_attempts.pdf}
+\caption{The 7 strategies that didn't improve performance. RND curiosity, high entropy, and extended training all scored worse than our best ICM-based approach. This shows the importance of systematic experimentation.}
+\label{fig:failed}
+\end{figure}
+
+\subsection{Summary of PPO Results}
+
+\begin{figure}[h!]
+\centering
+\includegraphics[width=0.48\textwidth]{fig1_score_progression.pdf}
+\caption{All 11 PPO experiments we tried. Green dots show successful improvements (5.08\% → 7.10\% → 8.27\% → 8.61\%). Red X's show failed attempts. Numbers show percentage improvements between successful runs.}
+\label{fig:all_attempts}
+\end{figure}
+
+Figure \ref{fig:all_attempts} shows all 11 attempts. We learned:
+
+\begin{enumerate}
+    \item Use standard hyperparameters from the literature as a starting point
+    \item Curiosity helps a lot for sparse rewards, but balance is critical
+    \item Bigger networks can help, especially for complex tasks
+    \item More training isn't always better
+    \item Documenting failures helps understand what doesn't work
+\end{enumerate}
+
+\section{DQN Implementation and Results}
+
+\textit{[Partner: Fill in this section following the same style as Section II]}
+
+\textit{Use subsections like:}
+\begin{itemize}
+    \item How DQN Works
+    \item Our Implementation
+    \item Evaluation 1: Baseline
+    \item Evaluation 2: [Your improvement]
+    \item Evaluation 3: [Your improvement]
+    \item Evaluation 4: [Your improvement]
+    \item Things That Didn't Work
+    \item Summary of DQN Results
+\end{itemize}
+
+\section{Comparing PPO and DQN}
+
+\subsection{Final Scores}
+
+Table \ref{tab:results} shows our final results:
+
+\begin{table}[h]
+\centering
+\caption{Final Results Comparison}
+\label{tab:results}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Metric} & \textbf{PPO} & \textbf{DQN} \\
+\midrule
+Final Score & 8.61\% & [Partner] \\
+Improvement & +69.5\% & [Partner] \\
+Training Time & 2.5 hours & [Partner] \\
+Wood Pickaxe & 58\% & [Partner] \\
+Wood Sword & 61\% & [Partner] \\
+Coal (rare) & 2\% & [Partner] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Exploration Strategies}
+
+The biggest difference between the algorithms was exploration:
+
+\textbf{PPO used curiosity rewards:}
+\begin{itemize}
+    \item Gave dense rewards for novel experiences
+    \item Found rare achievements (coal, skeleton)
+    \item But needed careful tuning to avoid curiosity traps
+\end{itemize}
+
+\textbf{DQN used [Partner: describe your exploration]:}
+\textit{[Partner: Compare your exploration strategy and results]}
+
+\subsection{What We Learned}
+
+\textbf{About sparse rewards:} Standard exploration methods struggle. Curiosity-driven exploration helped PPO find rare achievements that would never be discovered by random chance.
+
+\textbf{About hyperparameters:} Literature values worked much better than our initial guesses. It's worth checking published implementations for starting points.
+
+\textbf{About experimentation:} We tried 11+ different strategies. Many failed, but failures taught us important lessons about what doesn't work.
+
+\textbf{About training:} Training metrics during learning don't always predict final performance. Always evaluate the final model separately.
+
+\subsection{Which Algorithm Worked Better?}
+
+\textit{[Complete after partner finishes DQN section]}
+
+For Crafter specifically:
+\begin{itemize}
+    \item \textit{[Which got higher score]}
+    \item \textit{[Why one performed better]}
+    \item \textit{[Trade-offs between approaches]}
+\end{itemize}
+
+\subsection{Project Limitations}
+
+\begin{itemize}
+    \item Only tested on one environment (Crafter)
+    \item Limited compute (~30-40 hours total)
+    \item Manual hyperparameter tuning
+    \item Could not test more advanced methods (hierarchical RL, etc.)
+\end{itemize}
+
+\subsection{If We Had More Time}
+
+\begin{itemize}
+    \item Test on other sparse-reward environments
+    \item Try combining best parts of both algorithms
+    \item Automated hyperparameter search
+    \item Test hierarchical approaches for multi-step tasks
+\end{itemize}
+
+\section{Conclusion}
+
+This project taught us how to implement and improve reinforcement learning algorithms. Starting from weak baselines, we systematically tested improvements and learned what works:
+
+\textbf{PPO achieved 8.61\%} (69.5\% improvement) by using better hyperparameters, curiosity-driven exploration, and a larger network.
+
+\textbf{DQN achieved [Partner fills]}.
+
+Key lessons:
+\begin{itemize}
+    \item Sparse rewards need special exploration strategies
+    \item Literature values are good starting points
+    \item Documenting failures helps understand algorithms
+    \item More training isn't always better
+    \item Always evaluate separately from training
+\end{itemize}
+
+\textit{[Add final comparison of which approach worked better for Crafter and why]}
+
+Code available at: \textit{[GitHub link]}
+
+\begin{thebibliography}{9}
+
+\bibitem{schulman2017}
+J. Schulman et al., ``Proximal policy optimization algorithms,'' 2017.
+
+\bibitem{mnih2015}
+V. Mnih et al., ``Human-level control through deep reinforcement learning,'' Nature, 2015.
+
+\bibitem{hafner2021}
+D. Hafner, ``Benchmarking the spectrum of agent capabilities,'' 2021.
+
+\bibitem{pathak2017}
+D. Pathak et al., ``Curiosity-driven exploration by self-supervised prediction,'' 2017.
+
+\bibitem{burda2019}
+Y. Burda et al., ``Exploration by random network distillation,'' 2019.
+
+\bibitem{schulman2016}
+J. Schulman et al., ``High-dimensional continuous control using GAE,'' 2016.
+
+\end{thebibliography}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{fig2_achievement_comparison.pdf}
+\caption{Achievement unlock rates across PPO evaluations. Shows improvement in tool crafting and discovery of rare achievements like coal and skeleton combat.}
+\label{fig:achievements}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{fig3_summary_metrics.pdf}
+\caption{Three key metrics (Score, Reward, Episode Length) across evaluations. All three improved with our changes.}
+\label{fig:metrics}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=0.48\textwidth]{fig5_improvement_breakdown.pdf}
+\caption{How much each evaluation contributed to the total 69.5\% improvement from baseline (5.08\%) to final result (8.61\%).}
+\label{fig:breakdown}
+\end{figure}
+
+\end{document}

@@ -52,6 +52,8 @@ def parse_args():
                        help='PPO clipping parameter')
     parser.add_argument('--entropy_coef', type=float, default=0.001,
                        help='Entropy coefficient (default: 0.001 from Improvement 1)')
+    parser.add_argument('--hidden_dim', type=int, default=512,
+                       help='Hidden dimension for actor/critic heads (default: 512)')
 
     # ICM hyperparameters
     parser.add_argument('--icm_feature_dim', type=int, default=512,
@@ -96,6 +98,7 @@ def main():
     print(f"Device: {device}")
     print(f"Total steps: {args.steps:,}")
     print("\n[PPO Hyperparameters]")
+    print(f"  Hidden dimension: {args.hidden_dim}")
     print(f"  Rollout size: {args.n_steps}")
     print(f"  Batch size: {args.batch_size}")
     print(f"  Epochs per update: {args.n_epochs}")
@@ -141,6 +144,7 @@ def main():
         observation_shape=(3, 64, 64),
         num_actions=env.action_space.n,
         device=device,
+        hidden_dim=args.hidden_dim,
         n_steps=args.n_steps,
         batch_size=args.batch_size,
         n_epochs=args.n_epochs,

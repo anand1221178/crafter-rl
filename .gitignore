@@ -32,6 +32,10 @@ ENV/
 # Training outputs (keep directory structure, ignore contents)
 logdir/*
 !logdir/.gitkeep
+logs/
+!logs/.gitkeep
+logs/*.out
+logs/*.err
 
 # Models: ignore ALL models except final eval models
 models/*                    # Ignore all models by default
@@ -46,14 +50,15 @@ models/ppo/*
 !models/dqn/*_eval*.pt
 !models/ppo/*_eval*.zip
 
-# Results: allow evaluation results, ignore training logs
-results/*
+# Results: ignore large result directories
+results/
 !results/.gitkeep
-!results/eval*              # Allow eval result folders
-results/eval*/stats.jsonl   # But allow stats.jsonl in eval folders
-logs/*.out
-logs/*.err
-!logs/.gitkeep
+!results/paper_figures/
+results/paper_figures/*.png  # Ignore PNGs (too large)
+!results/paper_figures/*.pdf # Keep PDFs only
+
+# Hyperparameter sweep results (very large!)
+sweep_results/
 
 # Tensorboard
 runs/
@@ -91,7 +96,14 @@ tmp/
 *.pkl
 *.pickle
 *.ckpt
-# Ignore jsonl except in eval results
+*.pth
+*.safetensors
+
+# PyTorch models (keep only final models, ignore checkpoints)
+logs/*/*.pt
+logdir/*/*.pt
+
+# Training logs (very large!)
 *.jsonl
 !results/eval*/*.jsonl
 
@@ -99,3 +111,17 @@ tmp/
 *.mp4
 *.avi
 *.gif
+
+# Large PNG images from plots
+results/paper_figures_combo/
+results/*/*.png
+
+# Compiled LaTeX files
+report/*.aux
+report/*.log
+report/*.out
+report/*.bbl
+report/*.blg
+report/*.synctex.gz
+report/*.fls
+report/*.fdb_latexmk

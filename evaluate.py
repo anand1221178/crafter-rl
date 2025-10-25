@@ -66,10 +66,17 @@ class CrafterEvaluator:
             # Try custom PPO first (our implementation)
             if model_path.endswith('.pt'):
                 device = 'mps' if torch.backends.mps.is_available() else ('cuda' if torch.cuda.is_available() else 'cpu')
+
+                # Load checkpoint to infer hidden_dim from model architecture
+                checkpoint = torch.load(model_path, map_location=device)
+                # Extract hidden_dim from actor.0.weight shape: [hidden_dim, 4096]
+                hidden_dim = checkpoint['policy_state_dict']['actor.0.weight'].shape[0]
+
                 agent = PPOAgent(
                     observation_shape=(3, 64, 64),
                     num_actions=17,
-                    device=device
+                    device=device,
+                    hidden_dim=hidden_dim
                 )
                 agent.load(model_path)
                 return agent

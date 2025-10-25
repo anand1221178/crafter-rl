@@ -29,13 +29,11 @@ ENV/
 .ipynb_checkpoints
 *.ipynb_checkpoints/
 
-# Training outputs (keep directory structure, ignore contents)
-logdir/*
-!logdir/.gitkeep
+# Training outputs - IGNORE EVERYTHING
 logs/
-!logs/.gitkeep
-logs/*.out
-logs/*.err
+logs/*
+logdir/
+logdir/*
 
 # Models: ignore ALL models except final eval models
 models/*                    # Ignore all models by default

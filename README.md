@@ -137,12 +137,5 @@ Trained on M4 MacBook Pro with MPS (Apple Silicon GPU):
 4. **NoisyNets**: Fortunato et al. 2018
 5. **Rainbow DQN**: Hessel et al. 2018
 
-## License
 
-Educational project for COMS4061A/COMS7071A. Code is for learning, not production use (obviously, it only gets 8.61% on Crafter).
 
----
-
-*Last updated: October 2025*
-*Status: Project complete, report written, learned things*
-*Achievement unlocked: Submitted on time* ✅

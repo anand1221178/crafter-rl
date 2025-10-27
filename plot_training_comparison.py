@@ -1,13 +1,5 @@
 #!/usr/bin/env python3
-"""
-Plot training statistics from multiple PPO experiments.
 
-This script reads stats.jsonl files from different training runs and creates
-comparison plots to visualize learning curves, rewards, and episode lengths.
-
-Usage:
-    python plot_training_comparison.py
-"""
 
 import json
 import matplotlib.pyplot as plt

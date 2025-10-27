@@ -1,15 +1,4 @@
 """
-Plot intrinsic vs extrinsic rewards for ICM training analysis.
-
-This shows the evolution of curiosity-driven exploration during training:
-- Early: High intrinsic reward (everything is novel)
-- Middle: Decreasing intrinsic reward (world becomes familiar)
-- Late: Spikes in intrinsic reward (discovering new areas/achievements)
-
-Key insights:
-- Intrinsic/extrinsic ratio shows exploration vs exploitation balance
-- Intrinsic reward decay shows learning progress (less surprised over time)
-- Extrinsic reward increase shows achievement discovery (main objective)
 """
 
 import argparse

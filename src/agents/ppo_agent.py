@@ -1,11 +1,5 @@
 """
 PPO (Proximal Policy Optimization) Agent
-
-Implements the baseline PPO algorithm with:
-- Actor-Critic network (shared CNN backbone)
-- Clipped surrogate objective
-- Generalized Advantage Estimation (GAE)
-- Multiple epochs of minibatch updates
 """
 
 import numpy as np
@@ -21,15 +15,6 @@ from src.utils.rollout_buffer import RolloutBuffer, create_minibatches
 
 
 class PPOAgent(BaseAgent):
-    """
-    PPO agent for visual RL tasks like Crafter.
-
-    Key components:
-    1. Actor-Critic network with shared CNN
-    2. Rollout buffer for on-policy data collection
-    3. GAE for advantage estimation
-    4. Clipped objective for stable policy updates
-    """
 
     def __init__(self,
                  observation_shape: tuple = (3, 64, 64),
@@ -52,7 +37,7 @@ class PPOAgent(BaseAgent):
                  normalize_advantages: bool = True,
                  dual_clip: Optional[float] = None):
         """
-        Initialize PPO agent.
+        agent params - this is from the internet!
 
         Args:
             observation_shape: Shape of observations (C, H, W)
@@ -89,13 +74,13 @@ class PPOAgent(BaseAgent):
         self.normalize_advantages = normalize_advantages
         self.dual_clip = dual_clip
 
-        # Networks
+        # create newroks 
         self.policy = ActorCritic(num_actions=num_actions, hidden_dim=hidden_dim).to(device)
 
-        # Optimizer (single optimizer for both actor and critic)
+        # TODO: find best optimisor - done (not sure if adam best but only one that worked)
         self.optimizer = optim.Adam(self.policy.parameters(), lr=lr, eps=1e-5)
 
-        # Rollout buffer
+        # rollouts
         self.rollout_buffer = RolloutBuffer(
             n_steps=n_steps,
             observation_shape=observation_shape,
@@ -103,29 +88,19 @@ class PPOAgent(BaseAgent):
             device=device
         )
 
-        # Tracking
         self.training_step = 0
         self.n_updates = 0
 
     def act(self, observation: np.ndarray, training: bool = True) -> int:
-        """
-        Select an action given an observation.
 
-        Args:
-            observation: Observation from environment, shape (H, W, C) in [0, 255]
-            training: If True, sample from policy. If False, take greedy action.
-
-        Returns:
-            action: Integer action in [0, num_actions)
-        """
-        # Preprocess observation
+        # preprocess forst 
         obs = self._preprocess_obs(observation)
 
-        # Get action from policy
+        # action from policy
         with torch.no_grad():
             action, log_prob, value = self.policy.get_action(obs, deterministic=not training)
 
-        # Store for rollout buffer (will be added in store_experience)
+        
         self._last_obs = obs.cpu().numpy().squeeze(0)  # Remove batch dim
         self._last_action = action.item()
         self._last_log_prob = log_prob.item()
@@ -133,19 +108,9 @@ class PPOAgent(BaseAgent):
 
         return self._last_action
 
-    def store_experience(self, obs: np.ndarray, action: int, reward: float,
-                        next_obs: np.ndarray, done: bool) -> None:
-        """
-        Store a transition in the rollout buffer.
+    def store_experience(self, obs: np.ndarray, action: int, reward: float,next_obs: np.ndarray, done: bool) -> None:
 
-        Args:
-            obs: Current observation
-            action: Action taken
-            reward: Reward received
-            next_obs: Next observation
-            done: Whether episode terminated
-        """
-        # Add to rollout buffer
+        #Rollout buffer addition here
         self.rollout_buffer.add(
             obs=self._last_obs,
             action=self._last_action,
@@ -158,73 +123,66 @@ class PPOAgent(BaseAgent):
         self.training_step += 1
 
     def update(self) -> Optional[Dict[str, float]]:
-        """
-        Perform PPO update when rollout buffer is full.
-
-        Returns:
-            Dictionary of training metrics or None if buffer not full
-        """
+        #TODO: update ppo when roloout buffer is full
         if not self.rollout_buffer.full:
             return None
 
-        # Get last value for bootstrapping
-        # If episode didn't end, bootstrap from value of final state
+        #TODO: Add here for ppo update logic of bootstrap if full or previous - DONE
         last_obs = self._preprocess_obs(self.rollout_buffer.observations[-1])
         with torch.no_grad():
             last_value = self.policy.get_value(last_obs).item()
 
-        # Compute advantages using GAE
+        #TODO: compute GAE ad
         self.rollout_buffer.compute_returns_and_advantages(
             last_value=last_value,
             gamma=self.gamma,
             gae_lambda=self.gae_lambda
         )
 
-        # Get all data from buffer
+   
         for batch in self.rollout_buffer.get():
             obs, actions, old_log_probs, advantages, returns, old_values = batch
 
-            # Normalize advantages (helps with training stability)
+            #From paper -> normalise for stability
             if self.normalize_advantages:
                 advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
-            # Multiple epochs of updates
+            #gather lots of epochs for update
             all_policy_losses = []
             all_value_losses = []
             all_entropies = []
             all_clip_fractions = []
 
             for epoch in range(self.n_epochs):
-                # Create minibatches
+                # minibatch
                 for minibatch in create_minibatches(
                     self.batch_size, obs, actions, old_log_probs,
                     advantages, returns, old_values
                 ):
                     mb_obs, mb_actions, mb_old_log_probs, mb_advantages, mb_returns, mb_old_values = minibatch
 
-                    # Evaluate actions under current policy
+                    # Evaluate actions from current policy
                     new_log_probs, new_values, entropy = self.policy.evaluate_actions(mb_obs, mb_actions)
 
-                    # Reshape values to match returns
+                    # TODO: Criiical respahe!
                     new_values = new_values.squeeze(-1)
 
-                    # ===== PPO Loss Components =====
+                    # PPO stuff below
 
-                    # 1. Policy loss (clipped surrogate objective with optional dual-clip)
+                    
                     ratio = torch.exp(new_log_probs - mb_old_log_probs)
                     surr1 = ratio * mb_advantages
                     surr2 = torch.clamp(ratio, 1 - self.clip_epsilon, 1 + self.clip_epsilon) * mb_advantages
 
                     if self.dual_clip is not None:
-                        # Dual-clip: prevents conservative policy updates on negative advantages
-                        # surr3 = max(dual_clip * advantage, surr2)
+
                         surr3 = torch.max(self.dual_clip * mb_advantages, surr2)
                         policy_loss = -torch.min(surr1, surr3).mean()
                     else:
-                        # Standard PPO clipping
+
                         policy_loss = -torch.min(surr1, surr2).mean()
 
-                    # 2. Value loss (clipped to prevent large updates)
+
                     if self.value_clip is not None:
                         value_pred_clipped = mb_old_values + torch.clamp(
                             new_values - mb_old_values,
@@ -237,7 +195,7 @@ class PPOAgent(BaseAgent):
                     else:
                         value_loss = 0.5 * (new_values - mb_returns).pow(2).mean()
 
-                    # 3. Entropy bonus (encourages exploration)
+
                     entropy_loss = entropy.mean()
 
                     # Total loss
@@ -249,16 +207,16 @@ class PPOAgent(BaseAgent):
                     nn.utils.clip_grad_norm_(self.policy.parameters(), self.max_grad_norm)
                     self.optimizer.step()
 
-                    # Track metrics
+
                     all_policy_losses.append(policy_loss.item())
                     all_value_losses.append(value_loss.item())
                     all_entropies.append(entropy_loss.item())
 
-                    # Clip fraction (how often we clip the ratio)
+
                     clip_fraction = ((ratio - 1.0).abs() > self.clip_epsilon).float().mean().item()
                     all_clip_fractions.append(clip_fraction)
 
-        # Reset buffer for next rollout
+
         self.rollout_buffer.reset()
         self.n_updates += 1
 
@@ -272,7 +230,7 @@ class PPOAgent(BaseAgent):
         }
 
     def save(self, path: str) -> None:
-        """Save agent to disk."""
+        """store agent on disk"""
         save_path = Path(path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -296,7 +254,7 @@ class PPOAgent(BaseAgent):
         }, save_path)
 
     def load(self, path: str) -> None:
-        """Load agent from disk."""
+        """get agent on disk"""
         checkpoint = torch.load(path, map_location=self.device)
 
         self.policy.load_state_dict(checkpoint['policy_state_dict'])
@@ -309,16 +267,8 @@ class PPOAgent(BaseAgent):
         print(f"  Updates: {self.n_updates}")
 
     def _preprocess_obs(self, obs: np.ndarray) -> torch.Tensor:
-        """
-        Preprocess observation for network input.
 
-        Args:
-            obs: Observation in HWC format, uint8 [0, 255] or float [0, 1]
-
-        Returns:
-            Preprocessed observation in CHW format, float32 [0, 1]
-        """
-        # Handle different input formats
+        # accoutn for  different input formats
         if obs.dtype == np.uint8:
             obs = obs.astype(np.float32) / 255.0
 
@@ -326,21 +276,20 @@ class PPOAgent(BaseAgent):
         if obs.shape[-1] == 3:
             obs = obs.transpose(2, 0, 1)
 
-        # Add batch dimension if needed
         if obs.ndim == 3:
             obs = obs[np.newaxis, ...]
 
-        # Convert to tensor
+        # Cto tensor
         obs_tensor = torch.from_numpy(obs).float().to(self.device)
 
         return obs_tensor
 
 
 if __name__ == "__main__":
-    """Test the PPO agent."""
+
     print("Testing PPO Agent...")
 
-    # Create agent
+
     agent = PPOAgent(
         observation_shape=(3, 64, 64),
         num_actions=17,

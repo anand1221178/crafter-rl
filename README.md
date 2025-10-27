@@ -1,309 +1,148 @@
-# Crafter RL Project
+# Crafter RL Project 🎮
 
-## Project Overview
-Implementation of reinforcement learning agents for the Crafter survival game environment. This project implements two RL algorithms:
-1. **Course Algorithm**: DQN (Deep Q-Network) - Model-free value-based RL
-2. **External Algorithm**: Dyna-Q - Model-based RL with integrated planning
+Teaching AI agents to survive in a 2D Minecraft-like world. Spoiler: it's harder than it looks.
 
-Each algorithm will undergo iterative improvements to optimize performance in the challenging Crafter survival environment.
+## What We Did
 
-## Assignment Details
-- **Due Date**: October 22, 2025, 23:59
-- **Team Size**: 2 members
-- **Environment**: Crafter with partial observability (CrafterPartial-v1)
-- **Observation Space**: 64x64 RGB images
-- **Action Space**: 17 discrete actions
+Built two different reinforcement learning agents from scratch to play **Crafter** - a survival game where you need to gather wood, craft tools, fight zombies, and generally not die. The catch? You only get rewarded for achievements like "craft a pickaxe" or "defeat a zombie," which happens maybe 1% of the time. The other 99% of the time, the agent has no idea if it's doing well or just wandering around aimlessly.
+
+**Final Results:**
+- **PPO (Proximal Policy Optimization)**: 8.61% Crafter Score → Won 🏆
+- **DQN (Deep Q-Network)**: 5.93% Crafter Score → Solid effort
+
+(For context, random agent gets ~0.5%. Human experts get ~50%. So we're... better than random!)
+
+## The Journey
+
+### PPO Implementation (Anand)
+Started at 5.08%, ended at 8.61% through:
+1. **Better hyperparameters** - Turns out the internet knows things (+39.8% improvement)
+2. **Curiosity-driven exploration (ICM)** - Gave the agent "bonus points" for discovering new things (+16.5%)
+3. **Bigger brain** - Increased network size so it could remember more complex strategies (+4.1%)
+
+Also tried 7 things that completely failed (RND curiosity, too much entropy, training for too long, etc.) but documenting failures is science, right?
+
+### DQN Implementation (Mikyle)
+Went from 2.80% to 5.93% through:
+1. **n-step returns** - Look ahead more than one step (+26.1%)
+2. **Action masking** - Stop trying impossible actions like "craft sword" when you have no wood (+13.3%)
+3. **Random-valid fallback** - If you can't do that action, do something useful instead of nothing (+8.3%)
+4. **ICM-lite curiosity** - Conservative exploration bonus, train-time only (+1.2%)
+5. **NoisyNets** - Parameter noise for sustained exploration (+35.4%)
+
+DQN was clever with inventory-aware masking but couldn't explore as well as PPO's full curiosity system.
+
+## Key Takeaway
+
+**Exploration beats efficiency** for sparse-reward environments like Crafter. PPO's curiosity-driven approach found rare achievements (coal, skeletons) that DQN missed, even though DQN was more sample-efficient on paper. Sometimes you just gotta explore weird stuff to discover the good stuff.
 
 ## Project Structure
 
 ```
 crafter-rl-project/
-├── crafter_env.yaml            # Conda environment specification
-├── CLAUDE.md                   # Project tracker with Dyna-Q strategy
-├── train.py                    # Unified training script (PPO, DQN, Dyna-Q)
-├── evaluate.py                 # Comprehensive evaluation script
-├── test_model.py               # Quick model testing script
-├── train_ppo.sbatch            # Cluster training script (PPO)
-├── train_dqn.sbatch            # Cluster training script (DQN)
-├── train_dynaq.sbatch          # Cluster training script (Dyna-Q)
 ├── src/
-│   ├── agents/
-│   │   ├── base_agent.py       # Abstract base class for all agents
-│   │   └── dynaq_agent.py      # Dyna-Q implementation (to be implemented)
-│   ├── models/
-│   │   ├── world_model.py      # Environment dynamics model (to be implemented)
-│   │   └── prioritized_sweeping.py  # Priority queue for planning (to be implemented)
-│   ├── utils/
-│   │   ├── networks.py         # Q-network (CNN for 64x64 RGB)
-│   │   └── replay_buffer.py    # Experience replay
-│   └── evaluation/
-│       ├── plot_reward.py      # Reward plotting utilities
-│       ├── plot_scores.py      # Achievement score plotting
-│       └── read_metrics.py     # Metrics reading from Crafter logs
-├── models/                     # Saved model checkpoints
-├── results/                    # Training results and evaluations
-├── logdir/                     # Training logs (Crafter metrics)
-└── README.md                   # This file
+│   ├── agents/          # PPO agent implementation
+│   ├── modules/         # ICM curiosity module
+│   └── utils/           # Networks, replay buffers, GAE
+├── train_ppo_icm.py     # Main PPO training script
+├── evaluate.py          # Evaluation (100 episodes)
+├── report/              # IEEE paper (8 pages)
+│   └── main.tex
+├── results/             # Evaluation results & figures
+├── logs/                # Training logs (19GB, gitignored)
+└── sweep_results/       # Hyperparameter sweep experiments
 ```
 
-## Key Metrics to Track
-1. **Achievement Unlock Rate**: Percentage of times each of 22 achievements is unlocked
-2. **Geometric Mean (Crafter Score)**: Overall score combining all achievements
-3. **Survival Time**: Average timesteps survived per episode
-4. **Cumulative Reward**: Total reward per episode
+## Quick Start
 
-## Implementation Pipeline
-
-### For Each Algorithm:
-1. **Base Implementation** → Evaluate (Eval 1)
-2. **Improvement 1** → Evaluate (Eval 2)
-3. **Improvement 2** → Evaluate (Eval 3)
-4. **Final Comparison** between both algorithms
-
-## Algorithms
-
-### Course Algorithm: DQN (Deep Q-Network)
-Model-free value-based RL using Stable-Baselines3 implementation:
-- Q-learning with neural network function approximation
-- Experience replay for sample efficiency
-- Target network for stable training
-- Epsilon-greedy exploration
-
-### External Algorithm: Dyna-Q (Model-Based RL)
-**Integrated Planning and Learning** - Classic model-based RL algorithm:
-- Learns environment dynamics (world model)
-- Combines real experience with simulated planning
-- Sample efficient: 1 real experience → N planning updates
-- Three phases of improvement:
-  1. **Eval 1**: Baseline Dyna-Q (random planning)
-  2. **Eval 2**: + Prioritized Sweeping (focused planning)
-  3. **Eval 3**: + Dyna-Q+ (exploration bonuses)
-
-**Why Model-Based RL for Crafter?**
-- Sparse rewards benefit from planning (simulate rare experiences)
-- Multi-step reasoning (chop tree → wood → stick → sword)
-- Sample efficient learning from limited interactions
-
-## Setup Instructions
-
-### Quick Setup (Recommended)
-
-**1. Create conda environment from YAML:**
+### Setup
 ```bash
-# Clone repository
-git clone <your-repo-url>
-cd crafter-rl-project
-
-# Create environment
-conda env create -f crafter_env.yaml
-conda activate crafter_env
+conda activate crafter  # or create env from requirements
 ```
 
-**2. Verify installation:**
+### Train PPO
 ```bash
-python -c "import torch; print(f'PyTorch: {torch.__version__}')"
-python -c "import crafter; print('Crafter: installed')"
-python -c "import stable_baselines3; print(f'SB3: {stable_baselines3.__version__}')"
+# Best config (8.61% result)
+python train_ppo_icm.py \
+    --steps 1000000 \
+    --lr 5e-4 \
+    --entropy_coef 0.001 \
+    --icm_beta 0.15 \
+    --hidden_dim 1024 \
+    --outdir logs/my_run
 ```
 
-### Manual Setup (Alternative)
-
-If you prefer manual installation:
-
+### Evaluate
 ```bash
-# Create environment
-conda create -n crafter_env python=3.10 -y
-conda activate crafter_env
-
-# Install PyTorch (adjust for your CUDA version)
-conda install pytorch=2.8.0 -c pytorch -y
-
-# Install dependencies
-pip install stable-baselines3 crafter gymnasium shimmy wandb imageio imageio-ffmpeg
-```
-
-## 🧪 Local Testing Commands
-
-### Create Environment
-```bash
-# Create conda environment locally
-conda env create -f crafter_env.yaml
-conda activate crafter_env
-```
-
-### Training Algorithms Locally
-```bash
-# Quick PPO test (10K steps, ~5 minutes)
-python train.py --algorithm ppo --steps 10000
-
-# Quick DQN test (10K steps, ~5 minutes)
-python train.py --algorithm dqn --steps 10000
-
-# Dyna-Q test (when implemented)
-python train.py --algorithm dynaq --steps 10000 --planning_steps 5
-
-# Full training (1M steps, ~4-8 hours on GPU)
-python train.py --algorithm dqn --steps 1000000
-```
-
-### Evaluating Models
-```bash
-# Comprehensive evaluation (100 episodes, detailed analysis)
 python evaluate.py \
-    --model_path models/dqn_final.zip \
-    --algorithm dqn \
-    --episodes 100
-
-# Quick test (10 episodes, basic metrics)
-python test_model.py models/dqn_final.zip dqn 10
-
-# Evaluate from training logdir (analyze existing stats.jsonl)
-python evaluate.py \
-    --logdir logdir/crafter_dqn_20251005_180000/ \
-    --algorithm dqn \
-    --episodes 100
+    --model_path logs/my_run/*/ppo_icm_final.pt \
+    --algorithm ppo \
+    --episodes 100 \
+    --outdir results/my_eval
 ```
 
-### Evaluation Outputs
-Evaluation generates:
-- 📊 Crafter Score (geometric mean of achievements)
-- 📈 Achievement unlock rates (all 22 achievements)
-- 🎯 Average reward and episode length
-- 📊 Plots (achievement rates, summary metrics)
-- 📄 JSON + text reports
-
-## 🚀 Cluster Training Commands
-
-### Submit Training Jobs
-
+### Hyperparameter Sweep (Cluster)
 ```bash
-# Submit DQN training (partner's course algorithm)
-sbatch train_dqn.sbatch
+# Generate 20 random configs
+python hyperparam_sweep.py --mode random --n_samples 20 --cluster slurm
 
-# Submit Dyna-Q training (external algorithm)
-sbatch train_dynaq.sbatch
+# Submit to cluster
+sbatch sweep_results/submit_sweep.sh
 
-# Submit PPO training (baseline comparison)
-sbatch train_ppo.sbatch
+# Analyze results
+python analyze_sweep.py sweep_results/ --top_n 10
 ```
 
-### Monitor Jobs
+## Files You Actually Care About
 
-```bash
-# Check job status
-squeue -u $USER
+- **`CLAUDE.md`** - Full experiment log with all results
+- **`report/main.tex`** - IEEE paper with everything documented
+- **`train_ppo_icm.py`** - The thing that actually trains the agent
+- **`src/modules/icm.py`** - Curiosity module (the secret sauce)
+- **`plot_all_experiments.py`** - Generate all the pretty figures
 
-# View live logs
-tail -f logs/dqn_<job_id>.out
-tail -f logs/dynaq_<job_id>.out
+## What We Learned
 
-# Cancel job
-scancel <job_id>
-```
+1. **Curiosity works** - ICM intrinsic rewards help discover rare achievements
+2. **Balance matters** - Too much curiosity (β=0.3) = curiosity trap. Too little = miss rare states
+3. **Literature > guessing** - Standard hyperparameters beat our initial guesses by a lot
+4. **More ≠ better** - Training for 1.5M steps was worse than 1M steps
+5. **Training metrics lie** - Best eval model (8.61%) had lower training reward than worse models
 
-### Training Options
+## Things That Failed (So You Don't Have To Try)
 
-All training scripts support the following arguments:
+- Random Network Distillation (RND) - Created curiosity trap, agent just explored forever
+- High entropy (0.005) - Policy stayed too random, never converged
+- Extended training (1.5M steps) - PPO degraded after 1M
+- Dual-clip PPO - Made training unstable with curiosity
+- Conservative learning rate (1e-4) - Too slow for 1M step budget
 
-```bash
-python train.py [OPTIONS]
+## Hardware
 
-Options:
-  --algorithm {ppo,dqn,dynaq}  Algorithm to train
-  --steps STEPS                Training steps (default: 1M)
-  --seed SEED                  Random seed (default: 42)
-  --eval_freq FREQ             Evaluation frequency (default: 50K)
+Trained on M4 MacBook Pro with MPS (Apple Silicon GPU):
+- Training time: ~2.5 hours per 1M steps
+- Speed: ~135 FPS
+- Total experiments: 11 runs, ~30 hours total
 
-  # Dyna-Q specific:
-  --planning_steps N           Planning steps per real step (default: 5)
-  --prioritized                Use prioritized sweeping
-  --exploration_bonus KAPPA    Exploration bonus for Dyna-Q+ (default: 0.0)
-```
+## Team
 
-## Training Results
+- **Anand Patel** - PPO + ICM implementation
+- **Mikyle Singh** - DQN + action masking implementation
 
-Results are saved in timestamped directories:
-```
-logdir/crafter_{algorithm}_{timestamp}/
-├── stats.jsonl              # Episode statistics (Crafter format)
-├── {algorithm}_final.zip    # Final model checkpoint (SB3 format)
-└── {algorithm}_final.pt     # Final model checkpoint (PyTorch format)
-```
+## Papers We Referenced
 
-## Implementation Status
-
-### ✅ Completed
-- [x] Project setup and conda environment
-- [x] Unified training script (PPO, DQN, Dyna-Q)
-- [x] Evaluation infrastructure
-- [x] Cluster training scripts (conda-based)
-- [x] Documentation (CLAUDE.md with Dyna-Q strategy)
-
-### 🚧 In Progress
-- [ ] Dyna-Q agent implementation (`src/agents/dynaq_agent.py`)
-- [ ] World model (`src/models/world_model.py`)
-- [ ] Prioritized sweeping (`src/models/prioritized_sweeping.py`)
-
-### 📋 Planned
-- [ ] Baseline Dyna-Q training (Eval 1)
-- [ ] Prioritized sweeping improvement (Eval 2)
-- [ ] Dyna-Q+ with exploration bonuses (Eval 3)
-- [ ] Final comparison (DQN vs Dyna-Q)
-- [ ] Report writing
-
-## Expected Results
-
-| Evaluation | Algorithm | Target Score | Key Feature |
-|------------|-----------|--------------|-------------|
-| **Eval 1** | Baseline Dyna-Q | 0.5-2% | Planning (5 steps/real step) |
-| **Eval 2** | + Prioritized Sweeping | 3-8% | Focused planning |
-| **Eval 3** | + Exploration Bonus | 8-15% | Directed exploration |
-
-**Sample Efficiency Analysis:**
-- **DQN (model-free)**: ~800K-1M steps to achieve 1% score
-- **Dyna-Q (model-based)**: ~200K-400K steps to achieve 1% score (2-5× faster)
-
-## Technical Notes
-
-### Crafter Environment
-- **Direct API**: Uses `crafter.Env()` directly (bypasses Gym/Gymnasium)
-- **Wrapper**: `CrafterWrapper` in train.py handles API normalization
-- **Recorder**: `crafter.Recorder` automatically logs stats.jsonl
-- **Observations**: 64×64×3 RGB numpy arrays
-- **Actions**: 17 discrete actions (0-16)
-
-### Conda vs Pip
-This project uses **conda** for reproducible environments:
-- ✅ Consistent Python version (3.10)
-- ✅ Compatible PyTorch + CUDA on cluster
-- ✅ Faster package resolution
-- ✅ Better dependency isolation
-
-### Cluster Configuration
-Scripts are configured for:
-- **Partition**: `bigbatch`
-- **GPUs**: 1 GPU per job (CUDA 12.6)
-- **CPUs**: 16 cores
-- **Time**: 24 hours
-- **Conda**: Auto-creates environment from YAML
-
-## Team Members
-- **Anand Patel** (Student #: _TO_BE_FILLED_)
-  - Role: Dyna-Q Implementation (External Algorithm)
-- **Partner Name** (Student #: _TO_BE_FILLED_)
-  - Role: DQN Implementation (Course Algorithm)
-
-## References
-
-### Papers
-1. **Dyna-Q**: Sutton & Barto 1996/2018 - Reinforcement Learning: An Introduction (Chapter 8)
-2. **Prioritized Sweeping**: Moore & Atkeson 1993
-3. **Crafter Benchmark**: Hafner 2021 - https://arxiv.org/abs/2109.06780
-
-### Code
-- **Crafter GitHub**: https://github.com/danijar/crafter
-- **Skeleton Code**: https://github.com/rayrsys/Reinforcement-Learning-Project-2026-Crafter.git
-- **Stable-Baselines3**: https://stable-baselines3.readthedocs.io/
+1. **PPO**: Schulman et al. 2017
+2. **ICM**: Pathak et al. 2017 (Curiosity-driven Exploration)
+3. **Crafter**: Hafner 2021
+4. **NoisyNets**: Fortunato et al. 2018
+5. **Rainbow DQN**: Hessel et al. 2018
 
 ## License
-This project is for educational purposes as part of COMS4061A/COMS7071A coursework.
+
+Educational project for COMS4061A/COMS7071A. Code is for learning, not production use (obviously, it only gets 8.61% on Crafter).
+
+---
+
+*Last updated: October 2025*
+*Status: Project complete, report written, learned things*
+*Achievement unlocked: Submitted on time* ✅

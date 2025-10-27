@@ -1,5 +1,8 @@
-import pathlib
+"""
+NOT OUR CODE -> THIS IS FROM THE OFFICIAL CRAFTER REPO!
+"""
 
+import pathlib
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker

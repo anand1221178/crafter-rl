@@ -1,5 +1,4 @@
 """
-Generate publication-quality comparison plots for all PPO experiments.
 
 Creates comprehensive visualizations showing:
 1. Crafter score progression across all evaluations
@@ -7,7 +6,7 @@ Creates comprehensive visualizations showing:
 3. Failed vs successful attempts
 4. Training time analysis
 
-For IEEE format report (max 8 pages).
+
 """
 
 import json

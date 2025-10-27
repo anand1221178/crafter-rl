@@ -1,3 +1,7 @@
+"""
+NOT OUR CODE -> THIS IS FROM THE OFFICIAL CRAFTER REPO!
+"""
+
 import json
 import pathlib
 import warnings

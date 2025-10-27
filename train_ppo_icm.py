@@ -1,13 +1,3 @@
-"""
-Training script for PPO + ICM (Intrinsic Curiosity Module) on Crafter.
-
-This script combines:
-1. PPO policy optimization (clipped objective, actor-critic)
-2. ICM curiosity-driven exploration (intrinsic rewards from prediction error)
-
-ICM provides exploration bonus in sparse reward environments by rewarding
-the agent for experiencing surprising/novel state transitions.
-"""
 
 import argparse
 import json
@@ -333,8 +323,8 @@ def main():
                 'forward_optimizer': icm.forward_optimizer.state_dict(),
             }, icm_checkpoint_path)
 
-            print(f"\n✓ Saved checkpoint: {checkpoint_path}")
-            print(f"✓ Saved ICM checkpoint: {icm_checkpoint_path}")
+            print(f"\n Saved checkpoint: {checkpoint_path}")
+            print(f" Saved ICM checkpoint: {icm_checkpoint_path}")
 
     # Final save
     final_path = outdir / "ppo_icm_final.pt"
@@ -350,9 +340,9 @@ def main():
         'forward_optimizer': icm.forward_optimizer.state_dict(),
     }, icm_final_path)
 
-    print(f"\n✓ Training complete!")
-    print(f"✓ PPO model saved: {final_path}")
-    print(f"✓ ICM model saved: {icm_final_path}")
+    print(f"\n Training complete!")
+    print(f" PPO model saved: {final_path}")
+    print(f" ICM model saved: {icm_final_path}")
 
     # Print summary
     print("\n" + "=" * 60)
@@ -371,7 +361,7 @@ def main():
 
     # Close ICM rewards log
     icm_rewards_log.close()
-    print(f"\n✓ ICM rewards logged to: {icm_rewards_file}")
+    print(f"\n ICM rewards logged to: {icm_rewards_file}")
 
     env.close()
 

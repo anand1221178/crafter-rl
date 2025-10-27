@@ -1,9 +1,3 @@
-"""
-Training script for custom PPO implementation on Crafter.
-
-This script trains the PPO agent defined in src/agents/ppo_agent.py
-from scratch (no stable-baselines3).
-"""
 
 import argparse
 import os
@@ -196,12 +190,12 @@ def main():
         if (step + 1) % args.save_freq == 0:
             checkpoint_path = outdir / f"checkpoint_{step+1}.pt"
             agent.save(str(checkpoint_path))
-            print(f"\n✓ Saved checkpoint: {checkpoint_path}")
+            print(f"\n Saved checkpoint: {checkpoint_path}")
 
     # Final save
     final_path = outdir / "ppo_baseline_final.pt"
     agent.save(str(final_path))
-    print(f"\n✓ Training complete! Final model saved: {final_path}")
+    print(f"\n Training complete! Final model saved: {final_path}")
 
     # Print summary
     print("\n" + "=" * 60)

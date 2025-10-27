@@ -1,14 +1,4 @@
-"""
-Training script for PPO + ICM + Dual-Clip on Crafter.
 
-Dual-Clip PPO enhancement (from DeepMind's AlphaStar):
-- Prevents overly conservative policy updates on negative advantages
-- Particularly helpful with ICM's noisy advantage estimates
-- Shown to improve performance 5-15% in sparse reward environments
-
-Key innovation: surr3 = max(c * advantage, clipped_surr)
-where c=3.0 (typical) allows larger policy changes when advantage is negative
-"""
 
 import argparse
 import json
@@ -54,7 +44,7 @@ def parse_args():
     parser.add_argument('--entropy_coef', type=float, default=0.001,
                        help='Entropy coefficient')
 
-    # Dual-Clip PPO
+    # DualClip PPO
     parser.add_argument('--dual_clip', type=float, default=3.0,
                        help='Dual-clip coefficient (3.0 is standard)')
 
@@ -70,7 +60,7 @@ def parse_args():
     parser.add_argument('--icm_lambda', type=float, default=0.1,
                        help='ICM inverse model loss weight')
 
-    # Logging & checkpoints
+    # Logging
     parser.add_argument('--outdir', type=str, default='logs/ppo_icm_dualclip',
                        help='Output directory')
     parser.add_argument('--save_freq', type=int, default=50000,
@@ -278,7 +268,7 @@ def main():
         if (step + 1) % args.save_freq == 0:
             checkpoint_path = outdir / f"checkpoint_{step+1}.pt"
             agent.save(str(checkpoint_path))
-            print(f"\n✓ Saved checkpoint: {checkpoint_path}")
+            print(f"\n Saved checkpoint: {checkpoint_path}")
 
     # Final save
     final_path = outdir / "ppo_icm_dualclip_final.pt"
@@ -291,9 +281,9 @@ def main():
         'forward_model': icm.forward_model.state_dict(),
     }, icm_final_path)
 
-    print(f"\n✓ Training complete!")
-    print(f"✓ PPO model saved: {final_path}")
-    print(f"✓ ICM model saved: {icm_final_path}")
+    print(f"\n Training complete!")
+    print(f" PPO model saved: {final_path}")
+    print(f" ICM model saved: {icm_final_path}")
 
     # Summary
     print("\n" + "=" * 60)
@@ -309,7 +299,7 @@ def main():
         print(f"Intrinsic reward: {np.mean(all_episode_intrinsic):.2f} (±{np.std(all_episode_intrinsic):.2f})")
 
     icm_rewards_log.close()
-    print(f"\n✓ ICM rewards logged to: {icm_rewards_file}")
+    print(f"\n ICM rewards logged to: {icm_rewards_file}")
 
     env.close()
 

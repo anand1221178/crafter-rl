@@ -8,7 +8,6 @@ to evaluate trained models and generate comprehensive performance reports.
 Usage:
     python evaluate.py --model_path models/ppo_model.zip --algorithm ppo --episodes 100
     python evaluate.py --logdir logdir/crafter_dqn_20251005_180000/ --algorithm dqn --episodes 100
-    python evaluate.py --logdir logdir/crafter_dynaq_20251005_180000/ --algorithm dynaq --episodes 100
 """
 
 import argparse
@@ -22,6 +21,7 @@ from datetime import datetime
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import gymnasium as gym
 import gym as old_gym
 import crafter
 from shimmy import GymV21CompatibilityV0
@@ -29,30 +29,74 @@ from gym.envs.registration import register
 
 # Import stable baselines for PPO evaluation
 try:
-    from stable_baselines3 import PPO
+    from stable_baselines3 import PPO, DQN
     HAS_SB3 = True
 except ImportError:
     HAS_SB3 = False
-    print("Warning: Stable Baselines3 not available. PPO evaluation may not work.")
+    print("Warning: Stable Baselines3 not available. PPO/DQN evaluation may not work.")
 
 # Import custom agents
-from src.agents.dynaq_agent import DynaQAgent
+# from src.agents.dynaq_agent import DynaQAgent  # Partner's code - not yet implemented
 import torch
+
+
+class Gym21ToOldGymWrapper(old_gym.Wrapper):
+    """Convert new Gymnasium 5-tuple API back to old Gym 4-tuple API for Recorder compatibility."""
+    
+    def reset(self, **kwargs):
+        obs, info = self.env.reset(**kwargs)
+        return obs
+    
+    def step(self, action):
+        obs, reward, terminated, truncated, info = self.env.step(action)
+        done = terminated or truncated
+        return obs, reward, done, info
 
 
 class CrafterEvaluator:
     """Unified evaluator for Crafter agents with comprehensive analysis."""
 
-    def __init__(self, algorithm='ppo', episodes=100, budget=1e6):
+    def __init__(self, algorithm='ppo', episodes=100, budget=1e6, action_masking=False, mask_fallback='noop', framestack=False, num_frames=4, icm=False):
         self.algorithm = algorithm
         self.episodes = episodes
         self.budget = int(budget)
+        self.action_masking = action_masking
+        self.mask_fallback = mask_fallback
+        self.framestack = framestack
+        self.num_frames = num_frames
+        self.icm = icm  # ICM flag (but will be OFF at eval)
         self.setup_environment()
 
     def setup_environment(self):
         """Setup Crafter environment for evaluation (direct, no wrappers)."""
         # Use Crafter directly without Gym wrappers to avoid API conflicts
-        self.env = crafter.Env()
+        env = crafter.Env()
+        
+        # Wrap with compatibility layer first
+        from shimmy import GymV21CompatibilityV0
+        env = GymV21CompatibilityV0(env=env)
+        
+        # Apply action masking FIRST (Gen-2/Gen-3c) - needs raw info with inventory
+        if self.action_masking:
+            from action_masking_wrapper import ActionMaskingWrapper
+            env = ActionMaskingWrapper(env, fallback_mode=self.mask_fallback, seed=42)
+            if self.mask_fallback == 'random':
+                print("🎭 Gen-3c: Action Masking with RANDOM-VALID fallback ENABLED for evaluation")
+            else:
+                print("🎭 Gen-2: Action Masking with NOOP fallback ENABLED for evaluation")
+        
+        # Apply framestack AFTER masking (Gen-3b) - only modifies observations
+        if self.framestack:
+            from framestack_wrapper import ChannelFrameStack
+            env = ChannelFrameStack(env, num_frames=self.num_frames)
+            print(f"🖼️ Gen-3b: FrameStack ENABLED for evaluation (num_frames={self.num_frames})")
+        
+        # Gen-4: ICM wrapper is NOT applied at evaluation (train-only)
+        if self.icm:
+            print("⚠️  Gen-4: ICM-lite was used during training but is OFF for evaluation")
+            print("   Reporting clean Crafter metrics only")
+        
+        self.env = env
 
     def load_model(self, model_path):
         """Load trained model based on algorithm type."""
@@ -64,17 +108,27 @@ class CrafterEvaluator:
             if not HAS_SB3:
                 raise ImportError("Stable Baselines3 required for DQN evaluation")
             from stable_baselines3 import DQN
-            return DQN.load(model_path)
+            # Try loading with custom NoisyDQN/NoisyDQNPolicy if present
+            try:
+                from noisy_dqn import NoisyDQN
+                from noisy_dqn_policy import NoisyDQNPolicy
+                model = DQN.load(model_path, custom_objects={'policy_class': NoisyDQNPolicy})
+                print("✅ Loaded NoisyDQN model")
+            except (ImportError, Exception):
+                model = DQN.load(model_path)
+                print("✅ Loaded standard DQN model")
+            return model
         elif self.algorithm == 'dynaq':
-            # Load Dyna-Q agent
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            agent = DynaQAgent(
-                observation_shape=(64, 64, 3),
-                num_actions=17,
-                device=device
-            )
-            agent.load(model_path)
-            return agent
+            # Load Dyna-Q agent - NOT YET IMPLEMENTED
+            raise NotImplementedError("Dyna-Q agent not yet implemented by partner")
+            # device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            # agent = DynaQAgent(
+            #     observation_shape=(64, 64, 3),
+            #     num_actions=17,
+            #     device=device
+            # )
+            # agent.load(model_path)
+            # return agent
         else:
             raise ValueError(f"Unknown algorithm: {self.algorithm}")
 
@@ -87,11 +141,20 @@ class CrafterEvaluator:
 
         # Load model
         model = self.load_model(model_path)
+        
+        # For NoisyNets: ensure deterministic evaluation (remove noise)
+        if hasattr(model, 'policy') and hasattr(model.policy, 'remove_noise'):
+            print("🔇 Removing parameter noise for deterministic evaluation")
+            model.policy.set_training_mode(False)
+            model.policy.remove_noise()
 
         # Create output directory with recording
         os.makedirs(outdir, exist_ok=True)
+        
+        # Wrap environment to convert new API to old API for Recorder
+        env = Gym21ToOldGymWrapper(self.env)
         env = crafter.Recorder(
-            self.env,
+            env,
             outdir,
             save_stats=True,
             save_video=False,
@@ -109,19 +172,10 @@ class CrafterEvaluator:
                 if self.algorithm in ['ppo', 'dqn']:
                     action, _ = model.predict(obs, deterministic=True)
                 elif self.algorithm == 'dynaq':
-                    # Dyna-Q greedy action (no exploration during eval)
                     action = model.act(obs, training=False)
 
-                # Handle both Gym APIs (4-tuple vs 5-tuple)
-                step_result = env.step(action)
-                if len(step_result) == 5:
-                    # New Gymnasium API: (obs, reward, terminated, truncated, info)
-                    obs, reward, terminated, truncated, info = step_result
-                    done = terminated or truncated
-                else:
-                    # Old Gym API: (obs, reward, done, info)
-                    obs, reward, done, info = step_result
-
+                #the wrapper now returns old 4-tuple API
+                obs, reward, done, info = env.step(action)
                 episode_reward += reward
 
             if (episode + 1) % 10 == 0:
@@ -353,6 +407,16 @@ def main():
                        help='Step budget for analysis')
     parser.add_argument('--outdir', type=str, default='evaluation_results',
                        help='Output directory for evaluation results')
+    parser.add_argument('--action-masking', action='store_true',
+                       help='Enable inventory-aware action masking (Gen-2)')
+    parser.add_argument('--mask-fallback', type=str, choices=['noop', 'random'], default='noop',
+                       help='Fallback mode for invalid actions: noop (Gen-2) or random (Gen-3c)')
+    parser.add_argument('--framestack', action='store_true',
+                       help='Enable FrameStack(4) for temporal context (Gen-3b)')
+    parser.add_argument('--num-frames', type=int, default=4,
+                       help='Number of frames to stack (default: 4)')
+    parser.add_argument('--icm', action='store_true',
+                       help='ICM-lite was used during training (Gen-4, stays OFF at eval)')
 
     args = parser.parse_args()
 
@@ -364,7 +428,12 @@ def main():
     evaluator = CrafterEvaluator(
         algorithm=args.algorithm,
         episodes=args.episodes,
-        budget=args.budget
+        budget=args.budget,
+        action_masking=args.action_masking,
+        mask_fallback=args.mask_fallback,
+        framestack=args.framestack,
+        num_frames=args.num_frames,
+        icm=args.icm
     )
 
     # Create timestamped output directory
